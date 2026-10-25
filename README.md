@@ -37,14 +37,24 @@ Notes and read-only tools from taking apart the **Clarion-built factory nav / he
 - The built-in **holiday table is pre-2019 Japanese** and FM covers **76–90 MHz** only **[confirmed]** ([01](docs/findings/01-card-layout-and-firmware.md), [03](docs/findings/03-config-files.md))
 - The ARM CPU and the updater slot at byte 0x14600000 match leafsdtools' **QY8XXX** unit family **[likely]** ([13](docs/findings/13-prior-art-leafsdtools.md))
 
-## Status: what works today
+## What has worked
+
+- **Patching the minute row into an hour row fixes the clock.** 11 same-length bytes in the skin point the Clock screen's minute row at the firmware's unused hour setter, so its + / − buttons move the clock by whole hours. Set +3 for NZST or +4 for NZDT, and the head-unit clock shows NZ time **[confirmed, owner report]** ([12](docs/findings/12-hour-offset-ui.md) §0, [#1](https://github.com/prasys/nz-leaf-discovery/issues/1))
+- **The unit loads edited skins from the card.** Same-size builds with the old trailer load and show in the car **[confirmed]** ([11](docs/findings/11-skin-pipeline.md), [12](docs/findings/12-hour-offset-ui.md) §0.2)
+- **Card writes are safe to repeat and undo.** Every write ran through the pinned writers: full-card backup, read-only preflight, owner-run `--apply`, byte-exact read-back, a receipt and a rollback snapshot **[confirmed, receipts]** ([BACKUPS](docs/BACKUPS.md))
+- **The card reads end to end without mounting it.** Hidden partition, firmware slots, CE ROM modules, MTCP/LZ4 (checked against `liblz4`), slot checksums and the settings store all decode with the read-only tools **[confirmed]** ([01](docs/findings/01-card-layout-and-firmware.md), [05](docs/findings/05-checksums.md), [06](docs/findings/06-mtcp-lz4.md))
+- **The skin's screen code decodes.** All 10,215 bytecode records parse, which is how the hour setter was found **[confirmed]** ([12](docs/findings/12-hour-offset-ui.md) §1)
+
+## In progress
 
 | | state | where |
 |---|---|---|
-| **Head-unit clock in NZ time** | **Works (manual).** The skin hour row: +3 = NZST, +4 = NZDT on the JST base [confirmed, owner report]. The label still says "Minutes", DST is switched by hand, and dash/timers/persistence are unverified | [12](docs/findings/12-hour-offset-ui.md) §0, [#1](https://github.com/prasys/nz-leaf-discovery/issues/1), [#2](https://github.com/prasys/nz-leaf-discovery/issues/2)–[#5](https://github.com/prasys/nz-leaf-discovery/issues/5) |
-| Automatic NZ DST | Open. A manual DST toggle build exists, untested | [12](docs/findings/12-hour-offset-ui.md) §8, [#2](https://github.com/prasys/nz-leaf-discovery/issues/2) |
-| Dash clock and charge/climate timers | Open. Vehicle.exe reads the corrected local time [confirmed static]; not checked in the car | [#4](https://github.com/prasys/nz-leaf-discovery/issues/4) |
-| Firmware clock patch | Not needed; it never showed an effect. Kept as history | [08](docs/findings/08-nz-clock-implementation.md), [#5](https://github.com/prasys/nz-leaf-discovery/issues/5) |
+| Automatic NZ DST | The owner switches +3 ↔ +4 by hand twice a year. A manual DST toggle build exists, untested and not written | [12](docs/findings/12-hour-offset-ui.md) §8, [#2](https://github.com/prasys/nz-leaf-discovery/issues/2) |
+| Hour row label | Still reads "Minutes" | [#3](https://github.com/prasys/nz-leaf-discovery/issues/3) |
+| Dash clock, charge/climate timers, persistence | Vehicle.exe reads the corrected local time [confirmed static]; not yet checked in the car, nor across GPS reconnects and power cycles | [#4](https://github.com/prasys/nz-leaf-discovery/issues/4) |
+| Dormant +13 G214 probe | Still on the card from the firmware tests; retire it with a pinned restore | [#5](https://github.com/prasys/nz-leaf-discovery/issues/5), [#8](https://github.com/prasys/nz-leaf-discovery/issues/8) |
+| Where the clock setting lives | SD settings store or the unit's internal flash? | [#6](https://github.com/prasys/nz-leaf-discovery/issues/6) |
+| Maps, voice, FM, GPS | Research; see To do and Other topics | [#12](https://github.com/prasys/nz-leaf-discovery/issues/12), [#14](https://github.com/prasys/nz-leaf-discovery/issues/14), [#15](https://github.com/prasys/nz-leaf-discovery/issues/15), [#16](https://github.com/prasys/nz-leaf-discovery/issues/16) |
 
 **Try it on your own card:** read [docs/BACKUPS.md](docs/BACKUPS.md) first, then follow [12 §0.5](docs/findings/12-hour-offset-ui.md#05-repeat-or-roll-back-owner-runs---apply). You need a full-card backup, a build that matches a pinned SHA256, and a read-only preflight that passes. If your card differs from this one, the writer refuses, and that is on purpose.
 
