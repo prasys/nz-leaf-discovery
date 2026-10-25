@@ -9,7 +9,27 @@ Notes and read-only tools from taking apart the **Clarion-built factory nav / he
 
 > **Scope: one car, one card.** Everything here comes from a single **30 kWh JDM Nissan LEAF** (owner-stated) with the Clarion nav unit on **firmware 066**: slots `G314JLNI.066` and `G214JLNI.066`, MINF components `G1066`/`G2066`/`G3066`/`S1066`/`S2066` **[confirmed, slot headers and MINF at LBA 800783]**, on the 16 GB map card labelled `485-1972-00`. Other LEAF models, firmware versions and cards may differ in offsets, sizes and behaviour. The tools pin hashes and sizes for this card and refuse anything else.
 
-## What's inside the unit
+## System overview
+
+The SD card is not just a map card: it is the unit's main storage. No bootloader is on the card (MINF names `BL102`, so it is probably in the unit's internal flash **[likely]**); the firmware, settings and UI are all on the card **[confirmed]** ([01](docs/findings/01-card-layout-and-firmware.md)).
+
+### What is on the card
+
+```mermaid
+flowchart LR
+  subgraph raw["Before p1: raw sectors, no file system"]
+    mbr["LBA 0 MBR<br/>LBA 1 CLARION ID table<br/>(the only place p2 is listed)"]
+    g314["65536 G314<br/>browser / shell"]
+    g214["157696 G214<br/>HMI app: Navi.exe, NaviSetCC,<br/>OBJDLL (MTCP = LZ4)"]
+    up14["667648 UP14<br/>updater NK"]
+    pm13["749568 PM13<br/>main CE 7 NK"]
+    bass["790528 BASS<br/>sub-micom / display blob"]
+    vsram["800768-818431<br/>settings store (VSRAM)<br/>+ MINF version table"]
+  end
+  p1["888833 p1 FAT32<br/>maps, radio tables,<br/>boot animation, speech"]
+  p2["29925377 hidden p2 exFAT<br/>user data, voice grammars,<br/>UI skin substance.skn"]
+  raw --- p1 --- p2
+```
 
 | piece | what it is | doc |
 |---|---|---|
@@ -21,21 +41,56 @@ Notes and read-only tools from taking apart the **Clarion-built factory nav / he
 | p1 data | map DB, radio tables, calendars, certificates, boot animation, speech | [03](docs/findings/03-config-files.md), [04](docs/findings/04-language-speech.md) |
 | SoC / OS | Renesas R-Car M1A (ARM Cortex-A9), Windows Embedded Compact 7 | [05](docs/findings/05-ce-rom-extract.md) |
 
-## Things you need to know
+### How the clock is worked out at run time
 
-- The skin isn't only text. Every screen is **bytecode run by a VM in `auirtdll.dll`**, and all 10,215 code records decode **[confirmed]** ([12](docs/findings/12-hour-offset-ui.md) §1.1)
+```mermaid
+flowchart TB
+  gps["GPS fix"] -->|"writes GMT only"| time["OBJ_Time (OBJDLL in G214)"]
+  zone["zone: Japan default +9"] --> total
+  dst["DST: stock toggle, +1 h, no date rule"] --> total
+  user["user offset: hour + minute (ExpSet)"] --> total
+  time --> total["getTotalOffset = zone + DST + user offset"]
+  total --> head["head-unit clock (skin screens)"]
+  total --> veh["Vehicle.exe: dash clock, charge / climate timers (static, unverified)"]
+  skin["Clock screen in the skin (bytecode VM, auirtdll.dll)"] -->|"stock: minute row, ±59 min<br/>patched: hour row, ±12 h"| setter["NaviSetCC SetExpOffsetHourSetting"]
+  setter --> user
+  user <-->|"saved / restored"| store["settings store on SD (or internal SRAM? #6)"]
+  navdrv["navdrv.dll forces CE to Tokyo time"] -.->|"CE layer only, not the display"| ce["Windows CE time zone"]
+```
+
+- **Boot path:** the bootloader in internal flash starts PM13, the main Windows CE 7 image **[likely]**. PM13's AppLaunch loads the G214 HMI app. It compares G214's header on the internal NOR flash with the copy on the SD card and can fall back to the NOR copy; this is the main lead for why patched G214 never took effect **[confirmed static; runtime branch unobserved]** ([08](docs/findings/08-nz-clock-implementation.md) §14.2).
+- **UI:** every screen is bytecode in the skin, run by a VM in `auirtdll.dll`. The screens call firmware COM objects (NaviSetCC, NaviGeneralCC, …) by DISPID, so a skin edit can call any firmware function that is exposed but unused **[confirmed]** ([12](docs/findings/12-hour-offset-ui.md) §1).
+- **Clock:** the displayed time is GMT plus a Japan zone (+9), DST and a user offset. The Clock screen only ever set the minute part. The hour row now sets the hour part through the stock setter **[confirmed static; owner report for the result]** ([12](docs/findings/12-hour-offset-ui.md) §1.3, §4).
+- **Settings store:** A/B copies with generation counters and additive sums. The unit re-saves it, so raw edits get replaced **[confirmed]** ([05](docs/findings/05-checksums.md) §2, [08](docs/findings/08-nz-clock-implementation.md) §13).
+
+## What we have learned
+
+**About the card and firmware**
+
+- The hidden p2 partition appears only in the sector-1 `CLARION ID` table. The real MBR blanks it, so a PC sees no hidden partition **[confirmed]** ([01](docs/findings/01-card-layout-and-firmware.md) §2)
+- G214, the HMI app, is **MTCP = raw LZ4 chunks** plus a raw tail, holding 287 CE modules **[confirmed]** ([06](docs/findings/06-mtcp-lz4.md))
+- Firmware slots carry **`SUM4`/`NKOK` headers**, and every integrity field found is a **plain additive sum**, never a CRC or signature **[confirmed]** ([05](docs/findings/05-checksums.md))
+- The CPU is a Renesas R-Car M1A (ARM Cortex-A9) running Windows Embedded Compact 7 **[confirmed]** ([05](docs/findings/05-ce-rom-extract.md) §3). With the updater slot at byte 0x14600000, that matches leafsdtools' **QY8XXX** unit family **[likely]** ([13](docs/findings/13-prior-art-leafsdtools.md))
+- The built-in **holiday table is pre-2019 Japanese** and FM covers **76–90 MHz** only **[confirmed]** ([01](docs/findings/01-card-layout-and-firmware.md), [03](docs/findings/03-config-files.md))
+
+**About the skin**
+
+- The skin isn't only text. Every screen is **bytecode**, and all 10,215 code records decode **[confirmed]** ([12](docs/findings/12-hour-offset-ui.md) §1.1)
+- The skin's **trailer value `0x0F6596FD` is no standard checksum**, and the unit doesn't seem to check it: edited skins with the old trailer load fine **[confirmed for same-size builds]** ([11](docs/findings/11-skin-pipeline.md) §1, [12](docs/findings/12-hour-offset-ui.md) §0.2)
+- `substance.skn` has a **UTC+11 exFAT timestamp**, so a PC wrote it, not the unit **[likely]** ([01](docs/findings/01-card-layout-and-firmware.md) §6). This card's skin was already modified when we found it.
+
+**About the clock**
+
 - The firmware already has a **±12 h hour setter that no screen calls**. The stock Clock screen only offers ±59 minutes **[confirmed static]** ([06](docs/findings/06-hmi-clock-and-hooks.md) §2, [12](docs/findings/12-hour-offset-ui.md) §1.3)
 - **11 same-length bytes in the skin** point the minute row at that setter, and the clock now shows NZ time **[confirmed, owner report]** ([12](docs/findings/12-hour-offset-ui.md) §0)
 - The clock has **two separate Japan defaults**: `navdrv.dll` forces CE to Tokyo time, and the app picks UTC+9 on its own. Changing CE alone does nothing for the display **[confirmed static]** ([07](docs/findings/07-nz-clock-design.md) §1)
-- **GPS overwrites the manual Set Clock** in the service menu. It seeds UTC, and the antenna puts it back **[confirmed, owner report + static]** ([08](docs/findings/08-nz-clock-implementation.md) §15, [12](docs/findings/12-hour-offset-ui.md) §4.1)
-- Firmware slots carry **`SUM4`/`NKOK` headers**, and every integrity field found is a **plain additive sum**, never a CRC or signature **[confirmed]** ([05](docs/findings/05-checksums.md))
-- G214, the HMI app, is **MTCP = raw LZ4 chunks** plus a raw tail, 287 CE modules **[confirmed]** ([06](docs/findings/06-mtcp-lz4.md))
-- The skin's **trailer value `0x0F6596FD` is no standard checksum** and the unit doesn't seem to check it: edited skins with the old trailer load fine **[confirmed for same-size builds]** ([11](docs/findings/11-skin-pipeline.md) §1, [12](docs/findings/12-hour-offset-ui.md) §0.2)
-- `substance.skn` has a **UTC+11 exFAT timestamp**, so a PC wrote it, not the unit **[likely]** ([01](docs/findings/01-card-layout-and-firmware.md) §6)
-- The **hidden p2 partition** appears only in the sector-1 `CLARION ID` table; the real MBR blanks it, so a PC sees no hidden partition **[confirmed]** ([01](docs/findings/01-card-layout-and-firmware.md) §2)
-- Patched G214 firmware **never showed an effect** in the car, and the reason is open (a NOR/SD header gate is one lead) **[confirmed result, cause open]** ([08](docs/findings/08-nz-clock-implementation.md) §14.2)
-- The built-in **holiday table is pre-2019 Japanese** and FM covers **76–90 MHz** only **[confirmed]** ([01](docs/findings/01-card-layout-and-firmware.md), [03](docs/findings/03-config-files.md))
-- The ARM CPU and the updater slot at byte 0x14600000 match leafsdtools' **QY8XXX** unit family **[likely]** ([13](docs/findings/13-prior-art-leafsdtools.md))
+- **GPS overwrites the manual Set Clock** in the service menu. It seeds UTC, and the antenna puts it back **[confirmed, owner report + static]**. The user offset is a separate, additive value that GPS leaves alone **[likely, static]** ([08](docs/findings/08-nz-clock-implementation.md) §15, [12](docs/findings/12-hour-offset-ui.md) §4.1)
+
+**About working on it**
+
+- **Go up a layer when firmware won't move.** Patched G214 was written and verified several times and never showed an effect; the skin visibly loads from the card, so the fix moved there **[confirmed result, cause open]** ([08](docs/findings/08-nz-clock-implementation.md) §14.2, [12](docs/findings/12-hour-offset-ui.md) §0.6)
+- **The unit fights raw edits.** A zone written straight into the settings store came back as Japan/+9 after a drive. Going through the unit's own setter is what sticks **[confirmed, read-back]** ([08](docs/findings/08-nz-clock-implementation.md) §13)
+- **Work from an image and pin everything.** All analysis ran on a read-only image. Every write was pinned by SHA256, byte-verified and reversible, which made it cheap to try ideas and back out ([BACKUPS](docs/BACKUPS.md))
 
 ## What has worked
 
