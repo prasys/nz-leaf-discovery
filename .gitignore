@@ -1,0 +1,18 @@
+# binaries live outside the repo (see binaries/MANIFEST.md)
+*.img
+*.bin
+*.nb0
+*.skn
+*.der
+*.hv
+*.dll
+*.exe
+*.wav
+*.png
+*.jpg
+binaries/*
+!binaries/MANIFEST.md
+work/
+__pycache__/
+*.pyc
+.DS_Store
