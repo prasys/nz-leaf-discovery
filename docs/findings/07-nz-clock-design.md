@@ -1,11 +1,11 @@
-# NZ clock design review (refs #4, #7, #11)
+# NZ clock design review (refs [#22](https://github.com/prasys/nz-leaf-discovery/issues/22), [#19](https://github.com/prasys/nz-leaf-discovery/issues/19), [#21](https://github.com/prasys/nz-leaf-discovery/issues/21))
 
 Review date: 2026-10-24. Scope: inspect Claude's findings and extracted modules,
 identify the app-side Japan default, and assess using CE's NZ timezone/DST logic.
 This is a design and static analysis result, not a tested firmware patch.
 **Implementation update (2026-10-25):** [12](12-hour-offset-ui.md) records the
 working manual hour-row skin patch [confirmed, owner report]. Automatic NZ DST
-remains open in [#44](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/44).
+remains open in [#2](https://github.com/prasys/nz-leaf-discovery/issues/2).
 [08](08-nz-clock-implementation.md) preserves the earlier app-side firmware
 candidates and unsuccessful car tests; their execution remains unproven.
 The CE bridge below remains a design proposal.
@@ -16,7 +16,7 @@ execution of extracted code occurred. No tools were installed.
 
 | Layer | Evidence | Result |
 |---|---|---|
-| CE | PM13 navdrv `FUN_eedf60e8`, documented in issue #4; model area `0x10`, `Bias=-540`, Tokyo names, zero transition dates | Forces CE to UTC+9 **[confirmed, prior decompiler trace]** |
+| CE | PM13 navdrv `FUN_eedf60e8`, documented in issue [#22](https://github.com/prasys/nz-leaf-discovery/issues/22); model area `0x10`, `Bias=-540`, Tokyo names, zero transition dates | Forces CE to UTC+9 **[confirmed, prior decompiler trace]** |
 | App default | G214 OBJDLL `FUN_40e2c4d4`, called from `OBJ_Time_initialize` at `0x40e2d3d4` | Area `0x10` selects zone type `0x3d` and zone `0x317040` = 3,240,000 hundredths = +9 h **[confirmed, read in decompiler]** |
 | GPS update | Navi.exe `FUN_003e86b8` | Constructs date/time from receiver data and writes GMT through `OBJ_Time_writeGMT`; no zone/DST/offset setter in this function **[confirmed, read in decompiler]** |
 | Local conversion | OBJDLL `OBJ_Time_getLocalTime` `0x40e2c3b8`, `OBJ_Time_getTotalOffset` `0x40e2c360` | Adds zone + DST + user offset to GMT via `STD_Time_addBase` **[confirmed, read in decompiler]** |

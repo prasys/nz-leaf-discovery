@@ -56,5 +56,5 @@ Binaries are NOT stored in git (copyrighted firmware + personal data). They live
 | `redacted` | 317440 | `work/nz-clock/saved-zone-writes/20261024T100911Z/nav-pair-fixed-plus13.bin` (complete candidate matched subsequent raw-card read; contains private data, never publish) |
 | `73cd5b94337cbbe53134d686047c484c67a3ddd7a69d1dc6d36e248e2412f9d5` | 172032 | `work/ce-extract/G214JLNI.066-HMI/modules/NaviGuideCC.dll` (GPS direction-property metadata) |
 | `2df489010f81a6b39373cae0dea7f2f8985a572bd48577d5741e1b5d0729efde` | 369152 | `work/ce-extract/G214JLNI.066-HMI/modules/DiagnosisCC.dll` (GPS/sensor renderers with owner-page binding unproven) |
-| `ec1138c812d5bc111ad30d2e8937b0657be1f8092f832cefb67a83916bfa192b` | 20025376 | `work/hour-offset-ui/build-v1/substance.skn` (`6a54198a` + 11-byte hour row, #29; findings 12 §7) |
-| `f255f86933cb2c83426bca395f74d3af8cea9bd9c7e5d330c1d6db0648f6d9a0` | 20025376 | `work/hour-offset-ui/build-v2-dst/substance.skn` (v1 hour row + 5-byte DST toggle, #29; findings 12 §8) |
+| `ec1138c812d5bc111ad30d2e8937b0657be1f8092f832cefb67a83916bfa192b` | 20025376 | `work/hour-offset-ui/build-v1/substance.skn` (`6a54198a` + 11-byte hour row, [#1](https://github.com/prasys/nz-leaf-discovery/issues/1); findings 12 §7) |
+| `f255f86933cb2c83426bca395f74d3af8cea9bd9c7e5d330c1d6db0648f6d9a0` | 20025376 | `work/hour-offset-ui/build-v2-dst/substance.skn` (v1 hour row + 5-byte DST toggle, [#1](https://github.com/prasys/nz-leaf-discovery/issues/1); findings 12 §8) |

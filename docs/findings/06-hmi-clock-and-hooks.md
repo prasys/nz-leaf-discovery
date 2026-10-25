@@ -1,4 +1,4 @@
-# HMI (G214) extraction, how the clock is computed, and a file hook (issues #6, #4, #7)
+# HMI (G214) extraction, how the clock is computed, and a file hook
 
 Tools (stdlib, `python3 -I`):
 
@@ -30,13 +30,13 @@ local = GMT + zone(+0x14) + dst(+0x1C) + offset(+0x20)       OBJDLL OBJ_Time_get
                                             │  units: 1/100 s (360000 = 1 h)
 OBJ_Time_readLocalTime ──► Navi, Vehicle(EvTimer → VCM over CAN), BT, Telema …
 ```
-- The HMI does **not** use the CE timezone. navdrv.dll's forced `Tokyo Standard Time` (see #4) only affects the CE layer.
+- The HMI does **not** use the CE timezone. navdrv.dll's forced `Tokyo Standard Time` (see [#22](https://github.com/prasys/nz-leaf-discovery/issues/22)) only affects the CE layer.
 - **Correction (NZ review):** the original diagram interchanged the offset and DST field labels. `OBJ_Time_writeDst` (`0x40e2cd30`) passes offset `0x1c` to the partial-write helper; `OBJ_Time_writeOffset` (`0x40e2cdf0`) passes `0x20`. The sum is unchanged. The app's independent Japan default is in `FUN_40e2c4d4`; see [07](07-nz-clock-design.md) for the trace and a proposed CE/NZ integration.
 - **User offset** (NaviSetCC `FUN_4285ea98`):
   `offset = (ExpOffsetHour − 12) · 360000 + (ExpOffsetMin − 59) · 6000` → `OBJ_Time_writeOffset`, omitting unset fields. **Correction (12 §1.4):** raw defaults are `0x80000000` (unset), initialized by `OBJ_ExpSet_initPrm` (`0x40e485fc`); 12/59 are NaviSetCC's local fallbacks, both representing zero. The setters support **±12 h and ±59 min**. The stock JP UI exposes only minutes; the later [hour-row patch](12-hour-offset-ui.md) exposes the hour setter.
 - **Hour setter has no area check:** `SetExpOffsetHourSetting` (NaviSetCC `FUN_4286cbec`, DISPID 0x6A) accepts −12…+12, writes `ExpOffsetHour = h+12` and re-applies the offset.
 - **DST** (`FUN_4286ccc4`): AutoDst on → `OBJ_Time_writeDst(360000)`. This is a fixed +1 h toggle, not a rule-based switch.
-- **Zone list is gated by model area** (`FUN_4286cd80`, `FUN_4285e108`): area < 0x20 gets no zones (JP is 0x10, see #4). 0x20/0x21 and 0x70 get 9, 0x30/0x40 get 76, 0x62 gets 7. `ScreenStateCC` references `MODEL_AREA_JAPAN` next to `SET_CLOCK_TIMEZONE/SUMMERTIME_SETTING_MENU` **[likely the menu gate]**.
+- **Zone list is gated by model area** (`FUN_4286cd80`, `FUN_4285e108`): area < 0x20 gets no zones (JP is 0x10, see [#22](https://github.com/prasys/nz-leaf-discovery/issues/22)). 0x20/0x21 and 0x70 get 9, 0x30/0x40 get 76, 0x62 gets 7. `ScreenStateCC` references `MODEL_AREA_JAPAN` next to `SET_CLOCK_TIMEZONE/SUMMERTIME_SETTING_MENU` **[likely the menu gate]**.
 - **Setting storage [confirmed, later trace]:** `OBJ_Setting` → `ExpSet` block (32 bytes at Setting+0x40). Words [0] language, [5] ExpOffsetHour, [6] ExpOffsetMin, [7] AutoDst. The earlier search assumed a raw hour default of 12 and missed the unset sentinel. The record is at LBA **808677 / 809821 +0x1A0**, inside SRST areas 807648 / 808792. `FUN_40e50564` restores its 0x20 bytes verbatim; see [12 §1.4](12-hour-offset-ui.md#14-storage-confirmed) and `expset_scan.py`.
 
 NaviSetCC DISPIDs (`typelib.py`): 0x69/0x6A Get/Set ExpOffsetHour, 0x6B/0x6C ExpOffsetMin, 0x6D/0x6E ExpAutoDst, 0x6F/0x70 TimeZone.
@@ -61,14 +61,14 @@ NaviSetCC DISPIDs (`typelib.py`): 0x69/0x6A Get/Set ExpOffsetHour, 0x6B/0x6C Exp
 
 ## 5. Proposed approach (for a human to test; nothing written to a card or car)
 
-**Superseded (2026-10-25):** the NZ-time helper in step 2 was never built. The working route is the skin-only hour row in [12](12-hour-offset-ui.md), which calls `SetExpOffsetHourSetting` from the stock Clock screen. Step 2's DST rule is still relevant to #44.
+**Superseded (2026-10-25):** the NZ-time helper in step 2 was never built. The working route is the skin-only hour row in [12](12-hour-offset-ui.md), which calls `SetExpOffsetHourSetting` from the stock Clock screen. Step 2's DST rule is still relevant to [#2](https://github.com/prasys/nz-leaf-discovery/issues/2).
 1. **Read Version Information only.** Enter the documented service menu (below) and record the Version Information screen. This is a read-only getter view (registry/module metadata). *(2026-10-25: the earlier proposed probe — press SRAM flush with `RunProgram.s` = `\Windows\explorer.exe` on a USB stick — is withdrawn: the traced flush handler creates dump files on the unit, the dumps' destination is unresolved, and no screen→method binding is proven, so this is not a "writes nothing" test.)*
 2. **NZ-time helper (to write):** a tiny ARM CE exe. It would call OBJDLL exports `OBJ_Setting_getObjID` + `OBJ_Setting_writeExpOffsetHour(15)` (JST+3 = NZST) and `OBJ_Time_getObjID` + `OBJ_Time_writeOffset`. It would also compute NZ DST from `OBJ_Time_readGMT` (last Sun Sep 02:00 → 1st Sun Apr 03:00) and use +4 h in summer. This assumes OBJDLL's shared object store is reachable from another process **[guess, to verify]**. The vehicle/timer path likely follows this clock: the verified consumer is **Vehicle.exe**, not EvTimerCC.dll itself (see [07](07-nz-clock-design.md)); the final CAN/VCM and dash effects remain untested.
 3. If the hook only runs from the service menu, rerun the helper twice a year or after a reset. A boot-time hook would need `EnableDbgShell.sh`/AppLaunch, or a skin change.
 
 **Menu context (2026-10-25).** Nissan bulletin NTB15-001E pp7–8 (<https://static.nhtsa.gov/odi/tsbs/2021/MC-10190166-0001.pdf>; audio OFF → MAP3 → audio PWR ×2 → MAP1) documents access to a Confirmation/Adjustment menu with Version Information; the owner reached it and its submenus. This is the documented access path — the exact JDM-firmware screen→method binding (any button calling DISPID 0x0b) remains unproven; skin COM calls are by DISPID and the skin has no SramFlush/SRAM/RunProgram names. Program Update skin tokens (parent evidence, coordinator-menu-evidence.json): label at skin file offset 0x182f24, `SK_SCT_SOFTWARE_UPDATE_CLICK` at 0x22370c, `SK_SCT_POP_PRG_PROGRAM_UPDATE_OK_CLICK` at 0x27cb2c, `…_CANCEL_CLICK` at 0x27cbac — label/event tokens only; the action handler is unknown. Owner's Version Information reading: **TCU software redacted, ITM software 066, ITM configuration part number redacted** [confirmed, owner report]. ITM "066" is consistent with the extracted G214JLNI.**066** image family [likely]; these strings are registry/module metadata readouts, so they do **not** fingerprint patched DLL bytes. Safe observation only: record the Version Information screen; never use SRAM flush/clear/initialize/erase/config-reset/Program Update items as "harmless launchers" or probes. Known unknowns: dump-file base path (`CSramCtl` vtable slot-0 getter), exact driver-side effect of `DeviceIoControl 0x75c08`/`0x111200c`, the Program Update handler, and the wait-handle registration that fixes which wait index reaches the command dequeue.
 
-## 6. Slot integrity values (issue #9) [confirmed]
+## 6. Slot integrity values (issue [#11](https://github.com/prasys/nz-leaf-discovery/issues/11)) [confirmed]
 
 Source: UP14 `PRGUpdate.exe`: `chkSumDat32` (`FUN_0001d1c0`), `NkFileSumCheck` (`FUN_0001f838`), `Nk2FileSumCheck` (`FUN_0001f654`). Verified on the card image with `tools/ce-extract/slotsum.py`.
 
@@ -76,7 +76,7 @@ Source: UP14 `PRGUpdate.exe`: `chkSumDat32` (`FUN_0001d1c0`), `NkFileSumCheck` (
 |---|---|---|
 | **SUM4** (slot header +0x30 `"SUM4"`, +0x34 sum) | sum of LE u32 words over the `size` bytes after the 512-byte header (size = header +0x00, zero-padded to 4), mod 2^32 | G314 (sector 65536) stored = calc = 0x27F57A1E; G214 (157696) stored = calc = 0x1E072FBC |
 | **MTCP chunk check** (+0x2C + 32·k) | the same word sum over that chunk's compressed bytes | all 11 G214 chunks match (e.g. chunk 0 0xB79471C1) |
-| NK2 variant (UP14/PM13) | `Nk2FileSumCheck`: `"SUM4"` at image +0x80 with sum at +0x84 and size at +0x88; summed over the image with bytes +0x30..0x35 and +0x84..0x8B zeroed | **verified (#49)**: UP14 `EA9437AA`, PM13 `F22493E0`. leafsdtools' wider exclusion (+0x30..0x3F, +0x84..0x8F) gives the same result, since those extra bytes are zero ([13](13-prior-art-leafsdtools.md) §2.2) |
+| NK2 variant (UP14/PM13) | `Nk2FileSumCheck`: `"SUM4"` at image +0x80 with sum at +0x84 and size at +0x88; summed over the image with bytes +0x30..0x35 and +0x84..0x8B zeroed | **verified**: UP14 `EA9437AA`, PM13 `F22493E0`. leafsdtools' wider exclusion (+0x30..0x3F, +0x84..0x8F) gives the same result, since those extra bytes are zero ([13](13-prior-art-leafsdtools.md) §2.2) |
 
 - Slots 667648 (UP14) and 749568 (PM13) have no SUM4 in their header sector. Their `SUM4` record is inside the image at +0x80 (`… 53 55 4D 34 aa 37 94 ea 58 20 8e 01` for UP14).
-- These sums only protect against corruption. They are not signatures. Whether the bootloader (BL102, internal flash) checks anything else, for example the keyed blobs at sector 800768 (#12), is **[open]**.
+- These sums only protect against corruption. They are not signatures. Whether the bootloader (BL102, internal flash) checks anything else, for example the keyed blobs at sector 800768 ([#10](https://github.com/prasys/nz-leaf-discovery/issues/10)), is **[open]**.

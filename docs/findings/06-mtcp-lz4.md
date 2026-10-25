@@ -1,6 +1,5 @@
 # G214 MTLD/MTCP: LZ4 decompression and WinCE inventory
 
-Issue: [#6](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/6).
 Analysis is static and read-only. No firmware or extracted code was executed;
 no car/card writes or decryption attempts were made. Binary outputs are in
 `~/nissan/work/mtcp/`, with hashes in `binaries/MANIFEST.md`.
@@ -13,7 +12,7 @@ lengths and agree byte-for-byte with the installed upstream `liblz4`
 `LZ4_decompress_safe` implementation. The stored checksum fields are **SUM4,
 not CRC32**: sums of little-endian 32-bit words modulo 2^32 over the compressed
 data **including sector padding**. All 11 chunk checks and both MTLD part checks
-match (§2–3). This corrects issue #6 and the earlier unknown/LZSS/CRC32 description
+match (§2–3). This corrects the earlier unknown/LZSS/CRC32 description
 in `01-card-layout-and-firmware.md`.
 
 **[confirmed]** Decompressed A followed by unchanged raw B yields a `0x2892200`
@@ -109,7 +108,7 @@ single-image observation does not settle the other slots or the header's u16
 field at `+0x14`.
 **[guess]** Header `+0x78 = 0x2806D839` may be another integrity/version field;
 its meaning remains unresolved. Slot-wide checksums belong to
-[#9](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/9).
+[#11](https://github.com/prasys/nz-leaf-discovery/issues/11).
 
 ## 3. MTCP chunk table and raw LZ4
 
@@ -171,7 +170,7 @@ matching the reconstructed size `0x2892200`. Module count at ROMHDR `+0x10`
 is `0x11F`; file count at `+0x30` is `0x2B`. The 84-byte ROMHDR is followed
 by 32-byte module records, then 28-byte file records. ROMHDR CPU field at
 `+0x44` is `0x01C2`; this is an additional observation for
-[#5](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/5), not a new
+the CPU identification in `05-ce-rom-extract.md` §3, not a new
 SoC identification.
 
 **[confirmed]** Selected TOC entries (all offsets below refer to the ROM):
@@ -238,7 +237,7 @@ The decoder tests cover malformed/truncated LZ4, overlap, output-size limits,
 container/checksum failures and write-path protections.
 
 The outer MTCP format is resolved. Header `+0x78` and slot header integrity
-remain with #9. Inner CE section decompression/PE reconstruction is the next
-step ([#22](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/22))
+remain with [#11](https://github.com/prasys/nz-leaf-discovery/issues/11). Inner CE section decompression/PE reconstruction is the next
+step ([#18](https://github.com/prasys/nz-leaf-discovery/issues/18))
 before inspecting Navi.exe or compressed settings data; menu/market
-gating remains [#7](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/7).
+gating remains [#19](https://github.com/prasys/nz-leaf-discovery/issues/19).

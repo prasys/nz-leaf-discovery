@@ -35,9 +35,9 @@ Then:
 
 The owner's backup is `work/nz-clock/backups/20261024T073738Z/card-before-patch.img`. It predates every write to the card (G214 probe, skin builds, hour row).
 
-## 3. A spare cloned card (#13, untested)
+## 3. A spare cloned card ([#9](https://github.com/prasys/nz-leaf-discovery/issues/9), untested)
 
-The safest place for an experiment is a clone on a spare card of the same or larger size, with the original in a drawer. **Nobody has tested yet whether a clone boots the car** (#13). The card may be bound to the unit; the keyed blobs at LBA 800768–800772 are unexplained (#12). Until #13 is answered, assume a clone may not work, and keep the original card and its backup intact.
+The safest place for an experiment is a clone on a spare card of the same or larger size, with the original in a drawer. **Nobody has tested yet whether a clone boots the car** ([#9](https://github.com/prasys/nz-leaf-discovery/issues/9)). The card may be bound to the unit; the keyed blobs at LBA 800768–800772 are unexplained ([#10](https://github.com/prasys/nz-leaf-discovery/issues/10)). Until [#9](https://github.com/prasys/nz-leaf-discovery/issues/9) is answered, assume a clone may not work, and keep the original card and its backup intact.
 
 Writing a clone is an owner step with `dd` onto the **spare** device. There is no pinned clone tool yet. If you need one, open an issue rather than improvising.
 
@@ -80,9 +80,9 @@ Writes so far: `nz-clock/writes/20261024T084550Z` (G214 probe, 08 §5), `transla
 |---|---|---|
 | hour row | set the Clock row to 0 first, then `write_skin.py --build ~/nissan/work/translation/build/substance.skn` (build `6a54198a`) | supported |
 | all skin changes | `write_skin.py --build ~/nissan/work/translation/substance.skn` (the skin as found, `ea5b5a34`) | supported |
-| G214 probe | needs a pinned restore of the `G214-before-write.bin` snapshot. `write_card.py` only writes its two candidate variants | open (#47, #52) |
-| everything | write the whole `card-before-patch.img` back to the card | no pinned tool yet (#52); see below |
+| G214 probe | needs a pinned restore of the `G214-before-write.bin` snapshot. `write_card.py` only writes its two candidate variants | open ([#5](https://github.com/prasys/nz-leaf-discovery/issues/5), [#8](https://github.com/prasys/nz-leaf-discovery/issues/8)) |
+| everything | write the whole `card-before-patch.img` back to the card | no pinned tool yet ([#8](https://github.com/prasys/nz-leaf-discovery/issues/8)); see below |
 
 Set the hour row to 0 before a skin rollback. The stored offset lives in the unit's settings, not in the skin, so a skin without the hour row has no button to clear it.
 
-**Restoring the full backup.** There is no pinned whole-card restore writer today. A raw `dd` of the backup onto the card would work in principle, but it skips every check above, and it also rolls back settings the unit has saved since the backup (VSRAM). Treat it as a last resort, for the owner only, after a fresh backup of the current state. A pinned restore tool is tracked in #52.
+**Restoring the full backup.** There is no pinned whole-card restore writer today. A raw `dd` of the backup onto the card would work in principle, but it skips every check above, and it also rolls back settings the unit has saved since the backup (VSRAM). Treat it as a last resort, for the owner only, after a fresh backup of the current state. A pinned restore tool is tracked in [#8](https://github.com/prasys/nz-leaf-discovery/issues/8).

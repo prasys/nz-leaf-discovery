@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for the issue #29 hour-offset helpers.  Synthetic bytes first; checks that
+"""Tests for the issue #1 hour-offset helpers.  Synthetic bytes first; checks that
 need the skin carve are skipped when it is absent.  Nothing is written anywhere.
 
     python3 -I tools/hour-offset-ui/test_hour_offset_ui.py

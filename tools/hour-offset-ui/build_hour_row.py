@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the hour-row skin: hour_row_plan.EDITS applied to a pinned skin (issue #29).
+"""Build the hour-row skin: hour_row_plan.EDITS applied to a pinned skin (issue #1).
 
 Reads the input skin read-only, refuses unless its SHA256 is one of hour_row_plan.KNOWN
 and every baseline/decode check passes, and writes <out>/substance.skn plus

@@ -41,10 +41,10 @@ Notes and read-only tools from taking apart the **Clarion-built factory nav / he
 
 | | state | where |
 |---|---|---|
-| **Head-unit clock in NZ time** | **Works (manual).** The skin hour row: +3 = NZST, +4 = NZDT on the JST base [confirmed, owner report]. The label still says "Minutes", DST is switched by hand, and dash/timers/persistence are unverified | [12](docs/findings/12-hour-offset-ui.md) §0, #29, #44–#47 |
-| Automatic NZ DST | Open. A manual DST toggle build exists, untested | [12](docs/findings/12-hour-offset-ui.md) §8, #44 |
-| Dash clock and charge/climate timers | Open. Vehicle.exe reads the corrected local time [confirmed static]; not checked in the car | #46 |
-| Firmware clock patch | Not needed; it never showed an effect. Kept as history | [08](docs/findings/08-nz-clock-implementation.md), #47 |
+| **Head-unit clock in NZ time** | **Works (manual).** The skin hour row: +3 = NZST, +4 = NZDT on the JST base [confirmed, owner report]. The label still says "Minutes", DST is switched by hand, and dash/timers/persistence are unverified | [12](docs/findings/12-hour-offset-ui.md) §0, [#1](https://github.com/prasys/nz-leaf-discovery/issues/1), [#2](https://github.com/prasys/nz-leaf-discovery/issues/2)–[#5](https://github.com/prasys/nz-leaf-discovery/issues/5) |
+| Automatic NZ DST | Open. A manual DST toggle build exists, untested | [12](docs/findings/12-hour-offset-ui.md) §8, [#2](https://github.com/prasys/nz-leaf-discovery/issues/2) |
+| Dash clock and charge/climate timers | Open. Vehicle.exe reads the corrected local time [confirmed static]; not checked in the car | [#4](https://github.com/prasys/nz-leaf-discovery/issues/4) |
+| Firmware clock patch | Not needed; it never showed an effect. Kept as history | [08](docs/findings/08-nz-clock-implementation.md), [#5](https://github.com/prasys/nz-leaf-discovery/issues/5) |
 
 **Try it on your own card:** read [docs/BACKUPS.md](docs/BACKUPS.md) first, then follow [12 §0.5](docs/findings/12-hour-offset-ui.md#05-repeat-or-roll-back-owner-runs---apply). You need a full-card backup, a build that matches a pinned SHA256, and a read-only preflight that passes. If your card differs from this one, the writer refuses, and that is on purpose.
 
@@ -53,7 +53,7 @@ Notes and read-only tools from taking apart the **Clarion-built factory nav / he
 Firmware-level attempts were all written and byte-verified on the card, and the car showed **no change** each time **[confirmed, owner report]**. Details, likely reasons and receipts are in [12 §0.6](docs/findings/12-hour-offset-ui.md#06-what-didnt-work-and-why-the-fix-moved-to-the-skin) and [08](docs/findings/08-nz-clock-implementation.md).
 
 - **NZ-clock payload in G214/OBJDLL** (rebuilt, repacked slot): no change. The patched module probably never ran **[likely]**
-- **Fixed +13 probe in G214**: no change. It is **still on the card, dormant**; retiring it is #47
+- **Fixed +13 probe in G214**: no change. It is **still on the card, dormant**; retiring it is [#5](https://github.com/prasys/nz-leaf-discovery/issues/5)
 - **Saved zone set to +13 in the settings store**: the unit rewrote it back to Japan/+9 **[confirmed, read-back]**
 - **Widening the minute range** to ±3–4 h: not built. NaviSetCC caps the minute setter at ±59, so it would need the same G214 patching that never took effect
 
@@ -61,22 +61,22 @@ That is why the fix moved up a layer: the skin visibly loads from the card, and 
 
 ## To do
 
-- **Japanese maps:** understand the `DBDIR` map database well enough to say whether NZ maps can go on this unit (#19, #26; drafts in PRs #23 and #28)
-- **Voice guidance:** identify the GID prompt codec (#17) and see whether the prompts can be mapped or replaced
-- **Clock follow-ups:** automatic NZ DST (#44), the "Minutes" label (#45), car validation of dash, timers and persistence (#46), retiring the dormant G214 probe (#47)
-- Smaller open items: which store holds the clock setting (#50), the unit's model code (#51), pinned restore writers (#52)
+- **Japanese maps:** understand the `DBDIR` map database well enough to say whether NZ maps can go on this unit ([#12](https://github.com/prasys/nz-leaf-discovery/issues/12), [#13](https://github.com/prasys/nz-leaf-discovery/issues/13); the detailed map-format drafts are not public yet)
+- **Voice guidance:** identify the GID prompt codec ([#14](https://github.com/prasys/nz-leaf-discovery/issues/14)) and see whether the prompts can be mapped or replaced
+- **Clock follow-ups:** automatic NZ DST ([#2](https://github.com/prasys/nz-leaf-discovery/issues/2)), the "Minutes" label ([#3](https://github.com/prasys/nz-leaf-discovery/issues/3)), car validation of dash, timers and persistence ([#4](https://github.com/prasys/nz-leaf-discovery/issues/4)), retiring the dormant G214 probe ([#5](https://github.com/prasys/nz-leaf-discovery/issues/5))
+- Smaller open items: which store holds the clock setting ([#6](https://github.com/prasys/nz-leaf-discovery/issues/6)), the unit's model code ([#7](https://github.com/prasys/nz-leaf-discovery/issues/7)), pinned restore writers ([#8](https://github.com/prasys/nz-leaf-discovery/issues/8))
 
 ## Other topics
 
 | topic | what is known | where |
 |---|---|---|
-| Maps (NZ) | The JP map DB is a paged RDBMS (`DBDIR`) keyed on unsigned JIS mesh cells, not osm2clarion's EU tiles. BPCL drawing records decode end to end and match OSM coastline within metres. NZ needs at least a signed-latitude change in firmware [likely] | #19, #26, PRs #23 / #28 (open) |
-| FM band | Tables cover 76–90 MHz, no checksum. Whether the tuner reaches 88–108 MHz is open | [03](docs/findings/03-config-files.md), #15 |
-| GPS latitude shown as North | The owner sees "N" next to the NZ latitude. Property names found in G214; cause open | #31, [08](docs/findings/08-nz-clock-implementation.md) §14.6 |
-| Boot logo | `BASS` container with a u32 word-sum, on p1 and in slot 790528. Payload not decoded | [03](docs/findings/03-config-files.md) §10, #16 |
-| Voice prompts | Japanese Nuance TTS/VoCon. Recorded guidance clips use an unidentified codec | [04](docs/findings/04-language-speech.md), #17 |
-| Card binding | Unknown. Keyed blobs at LBA 800768–800772; clone boot untested. The card is not SD-password-locked | #12, #13, [13](docs/findings/13-prior-art-leafsdtools.md) §2.4 |
-| Checksums | All additive sums. Open: G214 header +0x14, MTLD +0x08, NK +0x6C | [05](docs/findings/05-checksums.md), #9 |
+| Maps (NZ) | The JP map DB is a paged RDBMS (`DBDIR`) keyed on unsigned JIS mesh cells, not osm2clarion's EU tiles. BPCL drawing records decode end to end and match OSM coastline within metres. NZ needs at least a signed-latitude change in firmware [likely] | [#12](https://github.com/prasys/nz-leaf-discovery/issues/12), [#13](https://github.com/prasys/nz-leaf-discovery/issues/13) |
+| FM band | Tables cover 76–90 MHz, no checksum. Whether the tuner reaches 88–108 MHz is open | [03](docs/findings/03-config-files.md), [#15](https://github.com/prasys/nz-leaf-discovery/issues/15) |
+| GPS latitude shown as North | The owner sees "N" next to the NZ latitude. Property names found in G214; cause open | [#16](https://github.com/prasys/nz-leaf-discovery/issues/16), [08](docs/findings/08-nz-clock-implementation.md) §14.6 |
+| Boot logo | `BASS` container with a u32 word-sum, on p1 and in slot 790528. Payload not decoded | [03](docs/findings/03-config-files.md) §10, [#17](https://github.com/prasys/nz-leaf-discovery/issues/17) |
+| Voice prompts | Japanese Nuance TTS/VoCon. Recorded guidance clips use an unidentified codec | [04](docs/findings/04-language-speech.md), [#14](https://github.com/prasys/nz-leaf-discovery/issues/14) |
+| Card binding | Unknown. Keyed blobs at LBA 800768–800772; clone boot untested. The card is not SD-password-locked | [#10](https://github.com/prasys/nz-leaf-discovery/issues/10), [#9](https://github.com/prasys/nz-leaf-discovery/issues/9), [13](docs/findings/13-prior-art-leafsdtools.md) §2.4 |
+| Checksums | All additive sums. Open: G214 header +0x14, MTLD +0x08, NK +0x6C | [05](docs/findings/05-checksums.md), [#11](https://github.com/prasys/nz-leaf-discovery/issues/11) |
 
 ## Tools used
 
@@ -126,7 +126,7 @@ Findings in [`docs/findings/`](docs/findings), by file number. 05 and 06 are eac
 
 ## Related projects
 
-- **Maps:** [albertbm/osm2clarion](https://github.com/albertbm/osm2clarion) builds OpenStreetMap maps for European Clarion QY8x cards. We compared it with the JP `DBDIR` format; it isn't a drop-in, and a JP-target fork is in progress (#19, #26)
+- **Maps:** [albertbm/osm2clarion](https://github.com/albertbm/osm2clarion) builds OpenStreetMap maps for European Clarion QY8x cards. We compared it with the JP `DBDIR` format; it isn't a drop-in, and a JP-target fork is in progress ([#12](https://github.com/prasys/nz-leaf-discovery/issues/12), [#13](https://github.com/prasys/nz-leaf-discovery/issues/13))
 - **SD card / unit:** [developerfromjokela/leafsdtools](https://github.com/developerfromjokela/leafsdtools) is an on-unit Windows CE tool for NAND backup, PROD/IMMO and SD lock. Its card builder patches the same updater slot as our UP14, and its NK checksum rule matches our slots ([13](docs/findings/13-prior-art-leafsdtools.md))
 - **WinCE ROM:** [pinkavaj/romtools](https://github.com/pinkavaj/romtools) (`dumprom`) is a WinCE ROM dumper. We use it as the reference for CE ROM section flags such as `IMAGE_SCN_COMPRESSED` ([06-mtcp](docs/findings/06-mtcp-lz4.md) §5)
 - **MTCP/LZ4:** [lz4/lz4](https://github.com/lz4/lz4): G214's MTCP chunks are raw LZ4 blocks, checked byte-for-byte against upstream liblz4 ([06-mtcp](docs/findings/06-mtcp-lz4.md))
@@ -144,5 +144,5 @@ binaries/MANIFEST.md   sha256 of every out-of-tree binary we reference
 
 - **Never write to the original image.** Image the card once, before Finder mounts it, then work from the image read-only ([BACKUPS §1](docs/BACKUPS.md#1-image-the-card-read-only-owner)).
 - Make a verified full-card backup before any write, and use only the pinned writers.
-- Whether a cloned card boots is untested (#13). The owner chose to write the production card after a verified backup ([08](docs/findings/08-nz-clock-implementation.md) §5).
+- Whether a cloned card boots is untested ([#9](https://github.com/prasys/nz-leaf-discovery/issues/9)). The owner chose to write the production card after a verified backup ([08](docs/findings/08-nz-clock-implementation.md) §5).
 - Don't edit VSRAM or firmware slots by hand. An earlier raw edit of the saved zone was simply replaced by the unit (08 §13).

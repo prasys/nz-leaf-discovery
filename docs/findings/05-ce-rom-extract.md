@@ -1,4 +1,4 @@
-# CE ROM extraction, compression and CPU (issues #2, #5, head start on #3)
+# CE ROM extraction, compression and CPU
 
 Tools: `tools/ce-extract/` (stdlib-only, run with `python3 -I`):
 
@@ -32,7 +32,7 @@ Priority targets **[confirmed]**:
 - `timezones.dll`: PM13 only. Resource-only (entry 0); `.rsrc` holds the MUI strings that the `Time Zones` registry entries reference (`timezones.dll,#NNNNN`).
 - `VSramSD.dll`: PM13 and UP14.
 - `boot.hv`, `default.hv`, `user.hv`: both images, all decompressed (§4).
-- `objdll.dll`: **not in PM13, UP14 or G314**. The only references are import-name strings inside G214JLNI (the MTCP slot), so the module itself lives in G214's MTCP-compressed part (issue #6). G214's decompressed content also uses this LZX block format (10,654 `5B 80 80 8D` magics in the slot), and `ECEC` appears at +0x237 of its first chunk. So once #6's outer layer is reversed, `ceromx.py` should be able to extract it **[likely]**.
+- `objdll.dll`: **not in PM13, UP14 or G314**. The only references are import-name strings inside G214JLNI (the MTCP slot), so the module itself lives in G214's MTCP-compressed part ([06-mtcp-lz4](06-mtcp-lz4.md)). G214's decompressed content also uses this LZX block format (10,654 `5B 80 80 8D` magics in the slot), and `ECEC` appears at +0x237 of its first chunk. So once the outer MTCP layer is reversed ([06-mtcp-lz4](06-mtcp-lz4.md)), `ceromx.py` should be able to extract it **[likely]**.
 
 ## 2. Compression: CE romimage LZX — [confirmed]
 
@@ -57,11 +57,11 @@ The first LZX word 0x1001 decodes MSB-first as E8 bit = 0, block type = 1 (verba
 
 ### PE rebuild notes
 - `e32_rom` (CE 6/7 layout, 112 bytes) carries objcnt, imageflags, entry RVA, vbase, subsystem version, stack, vsize, sect14, timestamp, 9 `{rva,size}` units and subsys. All modules show subsystem 9 (WINDOWS_CE_GUI) with subsystem version 7.0.
-- **`e32_rom` has no Machine field.** Like dumprom, the rebuilt PE takes Machine from ROMHDR `usCPUType`. So the PE Machine field is not independent evidence for #5 (see §3).
+- **`e32_rom` has no Machine field.** Like dumprom, the rebuilt PE takes Machine from ROMHDR `usCPUType`. So the PE Machine field is not independent evidence for the CPU (see §3).
 - romimage drops `.reloc` but keeps the FIX directory entry. The rebuild zeroes any data directory that no section covers, which Ghidra needs.
 - Section names are guessed (`.text`/`.data`/`.rdata`/`.pdata`/`.rsrc`) from flags and directories. XIP data sections have `o32_realaddr` in RAM (e.g. 0x8D300000) and their initial image in ROM at `o32_dataptr`. The rebuild uses the ROM copy.
 
-## 3. CPU architecture (#5) — ARM Cortex-A9, not SH-4A [confirmed]
+## 3. CPU architecture — ARM Cortex-A9, not SH-4A [confirmed]
 
 | evidence | where |
 |---|---|
@@ -83,7 +83,7 @@ analyzeHeadless ~/nissan/work/ghidra <proj> -import <module> -processor ARM:LE:3
 ```
 Tested on PM13 navdrv.dll with Ghidra 12.2: 253 functions, and exports disassemble as clean ARM (`mov r0,#0x1; bx lr`, `cpy r12,sp; stmdb sp!,{r4,r11,r12,lr}`). Ghidra's auto-pick (`ARM:LE:32:v8`/windows, from Machine 0x1C2) also works. v7 matches the Cortex-A9. Ghidra logs "Exception Data unsupported architecture: 0x1c2" for `.pdata`, which is harmless. Set the image base to the e32 vbase; the rebuilt PE already does this. Don't use SuperH4.
 
-## 4. Registry hives (head start for #3)
+## 4. Registry hives
 
 CE 6/7 hive format, worked out here **[likely]** (`cehive.py` docstring). Signature `EKIM` at +8. One root record (tag 0xB0) at +0x6010 holds links to the first subkey of HKCR, HKCU, HKLM and HKU. Key records (0xC0) are `{handle, next, firstsub, firstval, name}`; value records (0xD0) are `{handle, next, type, len, name, data}`. Every key in boot.hv and user.hv is reachable; in default.hv 1289 of 1303 are (the other 14 are probably free/stale records).
 
@@ -107,10 +107,10 @@ Clock-relevant **[confirmed]** (PM13 default.hv; UP14 is the same for `Time Zone
 ```
 - 146 `Time Zones` entries. The NZ entry has the post-2007 DST rules, so the OS could keep NZ time with DST by itself.
 - No `DefaultTZID`, `TimeZoneInformation`, area, market or destination keys were found. `HKLM\SOFTWARE\Clarion` holds only DirectShow filter settings.
-- Taken with §1, JST is **not** set by the registry. navdrv.dll forces it at runtime via `SetTimeZoneInformation` (issue #4 is the next step). The ROM registry is the factory image; the unit's persistent registry, if any, may live elsewhere (VSRAM?). That is open.
+- Taken with §1, JST is **not** set by the registry. navdrv.dll forces it at runtime via `SetTimeZoneInformation` (since traced, see [#22](https://github.com/prasys/nz-leaf-discovery/issues/22)). The ROM registry is the factory image; the unit's persistent registry, if any, may live elsewhere (VSRAM?). That is open.
 
 ## Open questions
-1. Disassemble `GPS:SetTimeZoneFromSystem` in PM13 navdrv.dll (#4): is the Tokyo TZI a constant, and is there a code path that honours `Time Zones\Default` or a VSRAM setting?
+1. Disassemble `GPS:SetTimeZoneFromSystem` in PM13 navdrv.dll ([#22](https://github.com/prasys/nz-leaf-discovery/issues/22)): is the Tokyo TZI a constant, and is there a code path that honours `Time Zones\Default` or a VSRAM setting?
 2. Does the unit persist registry changes (hive-based registry on SD/flash)? If it does, a registry-level fix might be possible without patching ROM.
 3. Is any SH-4A firmware payload inside the `_SH4A` filters or loaded from a file?
-4. G214 (#6): reverse the outer MTCP layer, then run `ceromx.py` on the inner image to get objdll.dll, evtimercc.dll and setcc.dll.
+4. G214 (since done, [06-mtcp-lz4](06-mtcp-lz4.md)): reverse the outer MTCP layer, then run `ceromx.py` on the inner image to get objdll.dll, evtimercc.dll and setcc.dll.

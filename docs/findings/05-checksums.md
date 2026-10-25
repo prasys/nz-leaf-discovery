@@ -1,4 +1,4 @@
-# Checksums: firmware slots and the VSRAM store (issues #9, #10)
+# Checksums: firmware slots and the VSRAM store
 
 Image: `nissan-sd-485-1972-00.img` (sha256 `redacted`, see `binaries/MANIFEST.md`). All work was read-only (`open(..., "rb")`).
 Tools: `tools/checksums/slot_sum.py` (slots) and `tools/checksums/vsram.py` (settings/VSRAM). Both verify every field below and can print the value a modified block would need. Neither writes anything.
@@ -20,7 +20,7 @@ Every integrity field we found on the card is a **plain additive sum**, never a 
 | slot header +0x30 `SUM4` | u32 at +0x34 | `sum32(payload)` | G314, G214 | **[confirmed]** |
 | slot header +0x14 | u16 | `sum8(payload) & 0xFFFF` | G314 | **[confirmed]** (G314); G214 mismatch, see §1.3 |
 | NK image +0x30 (UP14, PM13) | u16 | `sum8(image with +0x30..0x31 zeroed) & 0xFFFF` | UP14, PM13 | **[confirmed]** |
-| NK image +0x80 `SUM4` (UP14, PM13) | u32 at +0x84 | `sum32(image)` with the words at +0x30…0x3C and +0x84…0x8C left out; length at +0x88 | UP14 `EA9437AA`, PM13 `F22493E0` | **[confirmed]**, added by #49 ([13](13-prior-art-leafsdtools.md) §2.2) |
+| NK image +0x80 `SUM4` (UP14, PM13) | u32 at +0x84 | `sum32(image)` with the words at +0x30…0x3C and +0x84…0x8C left out; length at +0x88 | UP14 `EA9437AA`, PM13 `F22493E0` | **[confirmed]**, from leafsdtools ([13](13-prior-art-leafsdtools.md) §2.2) |
 | G214 MTLD part entry +0x0C | u32 | `sum32(part)` | 2/2 parts | **[confirmed]** |
 | G214 MTCP chunk entry +0x0C | u32 | `sum32(chunk padded to whole sectors)` | 11/11 chunks | **[confirmed]** |
 | BASS file +0x04 | u32 | `sum32(file[0x08:size])` (already in 03 §10) | slot 790528 | **[confirmed]** |
@@ -29,9 +29,9 @@ Every integrity field we found on the card is a **plain additive sum**, never a 
 | MINF sector +0x04 | u32 | `sum32(sector with +0x04 zeroed)` | 1/1 | **[confirmed]** |
 | INITMPID sector +0x20 | u32 | `sum32(sector[0:0x20])` | 1/1 | **[confirmed]** |
 
-Still open: G214 header +0x14 u16 (`0x6D06`), G214 MTLD +0x08 u32 (`0x2806D839`) and the NK image +0x6C u32. The first two are probably sums over the *decompressed* G214 image, which needs #6.
+Still open: G214 header +0x14 u16 (`0x6D06`), G214 MTLD +0x08 u32 (`0x2806D839`) and the NK image +0x6C u32. The first two are probably sums over the *decompressed* G214 image, which needs the MTCP decoder ([06-mtcp-lz4](06-mtcp-lz4.md)).
 
-**Update after #6 [confirmed]:** the outer MTCP compression is now resolved as
+**Update after the MTCP work [confirmed]:** the outer MTCP compression is now resolved as
 raw LZ4, with all 11 padded-chunk sums verified; see [06-mtcp-lz4.md](06-mtcp-lz4.md),
 §§2–4, for the descriptor/chunk offsets and recovered WinCE image. The checksum
 hypotheses below are retained as historical hypotheses, not confirmed results;
@@ -41,7 +41,7 @@ the remaining header fields are still unresolved.
 
 ---
 
-## 1. Firmware slots (#9)
+## 1. Firmware slots ([#11](https://github.com/prasys/nz-leaf-discovery/issues/11))
 
 Slot header sectors: 65536, 157696, 667648, 749568, 790528. The payload starts at the next sector (`hdr+1`), and its length is the u32 at hdr+0x00. The carved `slot*.bin` files start at `hdr+1`, except BASS, whose carve includes the header sector.
 
@@ -96,12 +96,12 @@ UP14 image:
 
 - `+0x30 u16 = sum8(image) & 0xFFFF`, with the two bytes of the field counted as zero: UP14 `0x147F`, PM13 `0x796E`. **[confirmed]** Without the zeroing the sums are 0x1512 / 0x7A55, so the field is excluded from its own sum.
 - `+0x32 u32` = image size, equal to the header's +0x00. **[confirmed]**
-- **Correction (#49):** the NK images also carry a `SUM4` record at image +0x80: u32 sum at +0x84, length at +0x88. `+0x84 = sum32` of the image with the words at +0x30…0x3C and +0x84…0x8C left out. UP14 `0xEA9437AA`, PM13 `0xF22493E0`, both stored = calculated **[confirmed]**. The earlier text said the +0x30 u16 was the only checksum. The rule comes from leafsdtools' card builder and from UP14 `PRGUpdate.exe` `Nk2FileSumCheck` (06 §6); see [13](13-prior-art-leafsdtools.md) §2.2.
+- **Correction:** the NK images also carry a `SUM4` record at image +0x80: u32 sum at +0x84, length at +0x88. `+0x84 = sum32` of the image with the words at +0x30…0x3C and +0x84…0x8C left out. UP14 `0xEA9437AA`, PM13 `0xF22493E0`, both stored = calculated **[confirmed]**. The earlier text said the +0x30 u16 was the only checksum. The rule comes from leafsdtools' card builder and from UP14 `PRGUpdate.exe` `Nk2FileSumCheck` (06 §6); see [13](13-prior-art-leafsdtools.md) §2.2.
 - `+0x6C u32` (UP14 0x770D6570, PM13 0x77756860) is **not** a sum32, a byte-sum, or a reflected or non-reflected CRC32 of the image (from offsets 0/0x40/0x80/0x1000, with the field and +0x30 zeroed or kept), and it doesn't equal any prefix or suffix sum32. **[unknown]** The two values share their top byte 0x77, so it may be a build or version value rather than a check.
 
 ### 1.3 G214 header +0x14 (open)
 
-The stored value is `0x6D06`, but `sum8(payload)` is `0x3241`. Sums over part A (0xD8E9) and part B (0x5958) don't match either. The MTLD table says the parts load as one image: part 0 (`MTCP`) unpacks to 0x147FE00 bytes at load offset 0, and part 1 (raw) loads at 0x147FE00 (§1.4). So the most plausible reading is that +0x14 is `sum8` of that **unpacked** 0x2892200-byte image, the same algorithm as G314 applied after decompression. **[guess]** To test it, reverse MTCP (#6) and check that `sum8(unpacked part A) ≡ 0x6D06 − 0x5958 = 0x13AE (mod 2^16)`. Meanwhile SUM4 over the stored bytes still verifies, so a tool can check G214 integrity.
+The stored value is `0x6D06`, but `sum8(payload)` is `0x3241`. Sums over part A (0xD8E9) and part B (0x5958) don't match either. The MTLD table says the parts load as one image: part 0 (`MTCP`) unpacks to 0x147FE00 bytes at load offset 0, and part 1 (raw) loads at 0x147FE00 (§1.4). So the most plausible reading is that +0x14 is `sum8` of that **unpacked** 0x2892200-byte image, the same algorithm as G314 applied after decompression. **[guess]** To test it, reverse MTCP ([06-mtcp-lz4](06-mtcp-lz4.md)) and check that `sum8(unpacked part A) ≡ 0x6D06 − 0x5958 = 0x13AE (mod 2^16)`. Meanwhile SUM4 over the stored bytes still verifies, so a tool can check G214 integrity.
 
 ### 1.4 G214 MTLD / MTCP tables
 
@@ -124,7 +124,7 @@ MTLD sits in the slot header at +0x70. It has a 0x10-byte head (magic, count, un
 | +0x10 | char[4] | `MTCP` = compressed, empty = raw | **[likely]** |
 | +0x14 | u32 | load offset in the unpacked image (0x147FE00 = MTCP unpacked total) | **[likely]** |
 
-The two part sums add up to SUM4 (0xB9E60A6A + 0x64212552 = 0x1E072FBC mod 2^32), as they must. MTLD +0x08 (0x2806D839) is not the sum32 of the MTLD table, the MTCP header, the chunk sums or the payload. It is probably `sum32` of the unpacked image. **[guess]**, needs #6.
+The two part sums add up to SUM4 (0xB9E60A6A + 0x64212552 = 0x1E072FBC mod 2^32), as they must. MTLD +0x08 (0x2806D839) is not the sum32 of the MTLD table, the MTCP header, the chunk sums or the payload. It is probably `sum32` of the unpacked image. **[guess]**; test it against the unpacked image ([06-mtcp-lz4](06-mtcp-lz4.md)).
 
 The MTCP header is the first sector of part 0: `"MTCP" u32 count=11 u32 chunk=0x200000`, then 0x20-byte entries from +0x20: `u32 n_sec, u32 unpacked_bytes, u32 packed_bytes, u32 sum32`. The chunk data starts at +0x200, and each chunk is padded to `n_sec` sectors. The checksum is `sum32` over the **padded** `n_sec × 512` bytes, not over `packed_bytes`: 11/11 match only when the padding is included (e.g. chunk 0: stored 0xB79471C1, padded 0xB79471C1, unpadded 0xB6B17190). **[confirmed]**
 
@@ -138,7 +138,7 @@ For G314: change the payload, then rewrite hdr+0x34 (`sum32`) and hdr+0x14 (`sum
 
 ---
 
-## 2. VSRAM store (#10)
+## 2. VSRAM store
 
 All sectors below are absolute image sectors. In `settings_800768-818431.bin`, sector `s` is at byte `(s − 800768) × 512`.
 
@@ -181,7 +181,7 @@ A useful check: the two sys copies have identical payloads and different headers
 ### 2.3 A/B generation scheme
 
 - In every pair the generations differ by exactly 1. **[confirmed]**
-- **A always holds the odd generation and B the even one** on this card (sys A 0x5651, nav A 0x11FF5, bt A 0x91B83). So the generation is a per-area save counter, and each save goes to the *other* copy with `gen+1`. **[likely]** (3/3 pairs; a second image after one more save would confirm it, see #11).
+- **A always holds the odd generation and B the even one** on this card (sys A 0x5651, nav A 0x11FF5, bt A 0x91B83). So the generation is a per-area save counter, and each save goes to the *other* copy with `gen+1`. **[likely]** (3/3 pairs; a second image after one more save would confirm it, see [#21](https://github.com/prasys/nz-leaf-discovery/issues/21)).
 - Current copy (highest generation): sys **A**, nav **B**, bt **B**. The loader presumably takes the highest-generation copy whose sum verifies and falls back to the other one (`[VSRAM]CVSramMltBackup::RestoreAreaData` in `VSramSD.dll`). **[guess]**, not disassembled yet.
 - The generations are very different per area (sys ≈ 22k saves, nav ≈ 74k, bt ≈ 597k), so each area saves on its own schedule.
 
@@ -193,7 +193,7 @@ Within each copy, offsets are from `SRST`. Shown are the non-blank extents (non-
 - **nav** (0x26C00): data at +0x000–0x8CB (header block; finding 01 places the timestamps at +0x144/+0x150 and the JP holiday table at +0x168–0x6D7), small records at +0x3274–0x5527, a large table at +0x7134–0xE93F, another at +0xED94–0x17A9C, and +0x1AA4F–0x21AC3 (position-like records, *redacted*). A≠B in 14 places, including +0x08–0x57 (header + first record), +0xF8–0x14A (current-time stamps), +0x3274–0x32DE and +0xB98C–0xB9E9.
 - **bt** (0x8F000): sparse header records at +0x0–0x197F, then large tables (+0x34428–0x45F52, +0x59E24–0x77C48, whose first runs start every ~0x9B8 bytes, so fixed-size records **[likely]**, +0x80B5C–0x841EB, +0x86620–0x8B39F). Contents are *redacted* (paired-phone names, history). A≠B in only 4 places (+0x08 gen, +0x1494–0x14A8, +0x197C, trailer).
 
-Record-level decoding of nav/bt is out of scope here. Differential imaging (#11) is the efficient way to name fields.
+Record-level decoding of nav/bt is out of scope here. Differential imaging ([#21](https://github.com/prasys/nz-leaf-discovery/issues/21)) is the efficient way to name fields.
 
 ### 2.5 Other records in the settings range
 
@@ -208,12 +208,12 @@ Record-level decoding of nav/bt is out of scope here. Differential imaging (#11)
 3. Set +0x08 = gen+1, set +0x0C to the other copy's number, and recompute the trailer with `sum32(copy[:-0x10])`.
 4. Write it over the *older* copy, leaving the current one intact as a fallback.
 
-`vsram.fixed_copy()` builds such a buffer in memory, and `vsram.py --recompute` prints the resulting trailer for an unchanged payload. Unknowns that still make this risky: whether VSDH or anything else (e.g. the keyed blobs at 800768–800772, #12) covers the areas, and whether the unit keeps a RAM/flash copy that overrides the card at boot.
+`vsram.fixed_copy()` builds such a buffer in memory, and `vsram.py --recompute` prints the resulting trailer for an unchanged payload. Unknowns that still make this risky: whether VSDH or anything else (e.g. the keyed blobs at 800768–800772, [#10](https://github.com/prasys/nz-leaf-discovery/issues/10)) covers the areas, and whether the unit keeps a RAM/flash copy that overrides the card at boot.
 
 ## Open questions
 
-1. G214 hdr+0x14 and MTLD+0x08: sums of the unpacked image? Needs MTCP (#6).
+1. G214 hdr+0x14 and MTLD+0x08: sums of the unpacked image? Needs MTCP ([06-mtcp-lz4](06-mtcp-lz4.md)).
 2. NK image +0x6C: what is it, and does the bootloader check it?
-3. Does the loader verify SUM4/sum8 at all, and does it check anything stronger (signature)? Needs the bootloader, which is not on the card, or `UpdateMng.exe`/`PRGUpdate.exe` from UP14 (#2).
-4. VSRAM: confirm the odd/even ↔ A/B rule with a second image (#11), and disassemble `VSramSD.dll` `RestoreAreaData` for the selection and fallback logic.
+3. Does the loader verify SUM4/sum8 at all, and does it check anything stronger (signature)? Needs the bootloader, which is not on the card, or `UpdateMng.exe`/`PRGUpdate.exe` from UP14.
+4. VSRAM: confirm the odd/even ↔ A/B rule with a second image ([#21](https://github.com/prasys/nz-leaf-discovery/issues/21)), and disassemble `VSramSD.dll` `RestoreAreaData` for the selection and fallback logic.
 5. Meaning of the SRST `0x6000000C` word and the VSDH `+0x00` word.

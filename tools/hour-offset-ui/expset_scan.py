@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Print the saved clock-offset settings from a card image or settings carve (issue #29).
+"""Print the saved clock-offset settings from a card image or settings carve (issue #1).
 
 Read-only, files only (never a device).  Prints nothing but these setting words:
 

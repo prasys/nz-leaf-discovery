@@ -166,7 +166,7 @@ Evidence that the **firmware drives the UI language** and can support several la
 - The WinCE OS is the **Japanese** build: Japanese menus, IME, "Windows Embedded Compact によって自動的に夏時間の調整が行われました。", "日付、時刻、タイムゾーンの設定を変更します。". Its WinCE locale tables also list other locales, which is normal.
 - The p1 card contains **only Japanese** speech and Shift-JIS map data. There are no EN TTS/VR files, so even if the firmware offered English, voice guidance and recognition data for it are missing from this card.
 - [guess] On the JP build the language menu is probably hidden or offers only 日本語. Whether the UI has English string resources in the app image is not yet confirmed (the app's UI text may be bitmaps or compressed).
-- **Update (#32) [confirmed]:** the UI text on this card comes from a modified skin file on hidden p2 (`/SkinChange/002/substance.skn`), not from the firmware; see [11](11-skin-pipeline.md).
+- **Update [confirmed]:** the UI text on this card comes from a modified skin file on hidden p2 (`/SkinChange/002/substance.skn`), not from the firmware; see [11](11-skin-pipeline.md).
 
 ## 6. CDDB (Gracenote) [confirmed]
 - `revinf.txt`: `Revision 6572 (build 1) of the eCDDB database[JP][Little Endian].`

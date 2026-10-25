@@ -1,5 +1,5 @@
 #!/usr/bin/env python3 -I
-"""Preflight or apply a reviewed skin build to /SkinChange/002/substance.skn on the card (issue #34).
+"""Preflight or apply a reviewed skin build to /SkinChange/002/substance.skn on the card.
 
 Default is a read-only preflight. --apply writes only the sectors holding
 substance.skn on hidden p2 (LBA 29925953, 39,113 sectors; the 480 bytes past
@@ -49,9 +49,9 @@ BUILDS = {
     "d220720b9f282703590cdafc52616269c2882777479f2eb9fae62bbf5e5826c4":
         "nz-en v1 --repack (full wording): same tsv, 461 cells, section 2 at 0x51B680",
     "ec1138c812d5bc111ad30d2e8937b0657be1f8092f832cefb67a83916bfa192b":
-        "nz-en v1 + hour row (#29): 11 bytes, Clock offset row -> SetExpOffsetHourSetting, +-12",
+        "nz-en v1 + hour row (#1): 11 bytes, Clock offset row -> SetExpOffsetHourSetting, +-12",
     "f255f86933cb2c83426bca395f74d3af8cea9bd9c7e5d330c1d6db0648f6d9a0":
-        "nz-en v1 + hour row + DST toggle (#29): +5 bytes, time-indication toggle -> SetExpAutoDstSetting",
+        "nz-en v1 + hour row + DST toggle (#1): +5 bytes, time-indication toggle -> SetExpAutoDstSetting",
 }
 STOCK_TRAILER = bytes.fromhex(
     "04000204" + b"470-6253-48\0".hex() + "fd96650f" + b"SKINSK18NNNI.183".hex())

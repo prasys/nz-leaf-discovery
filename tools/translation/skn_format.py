@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Record-level parser and serialiser for substance.skn (issue #34). Pure functions on bytes.
+"""Record-level parser and serialiser for substance.skn. Pure functions on bytes.
 
 Layout (docs/findings/11-skin-pipeline.md):
   0x000000  section 1: u32 0x04020001, head (0x40 bytes), then a chain of records

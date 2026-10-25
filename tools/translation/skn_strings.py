@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Inspect the SkinChange skin file (substance.skn) on hidden p2 (issue #32). Read-only.
+"""Inspect the SkinChange skin file (substance.skn) on hidden p2. Read-only.
 
 Usage: python3 -I tools/translation/skn_strings.py [--src PATH] CMD
   info              trailer, record types, PNG summary, string-pair counts

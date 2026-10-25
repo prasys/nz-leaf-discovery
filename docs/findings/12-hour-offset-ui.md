@@ -1,19 +1,19 @@
-# Hour offset in the normal Clock UI (refs #29)
+# Hour offset in the normal Clock UI (refs [#1](https://github.com/prasys/nz-leaf-discovery/issues/1))
 
 2026-10-25. **Start with §0** for the summary, assumptions and procedure. Static analysis, followed by a skin build, an owner-run write and an owner-reported car result (§7). No extracted code was executed. This extends the clock traces in [06](06-hmi-clock-and-hooks.md), [07](07-nz-clock-design.md) and [08](08-nz-clock-implementation.md). Ghidra projects: `~/nissan/work/ghidra/hour_offset_ui_{navisetcc,objdll,auirtdll}`. Exports: `~/nissan/work/hour-offset-ui/exports/`.
 
 **Current result [confirmed, owner report; no independent capture]:** the Clock screen adjustment now changes hours and the head-unit clock shows correct NZ time. The 11-byte patch repurposes the minute row; its label still says “Minutes”, and minute fine-tuning is unavailable. +3 is NZST and +4 is NZDT on a JST base. Automatic seasonal switching, dash/timers and persistence remain follow-up work (§9). The exact selected value and running DLL bytes were not captured. The additional manual DST-toggle candidate in §8 is untested in the car.
 
-## 0. Overview: what was done, what was assumed, how to repeat or undo it (#49)
+## 0. Overview: what was done, what was assumed, how to repeat or undo it
 
-This section is the short version for a newcomer. The rest of the file holds the evidence. It supersedes the firmware-patch route in [08](08-nz-clock-implementation.md) and the CE-bridge proposal in [07](07-nz-clock-design.md) as the way the clock is fixed today. Neither of those was deleted; they are history and groundwork for #44.
+This section is the short version for a newcomer. The rest of the file holds the evidence. It supersedes the firmware-patch route in [08](08-nz-clock-implementation.md) and the CE-bridge proposal in [07](07-nz-clock-design.md) as the way the clock is fixed today. Neither of those was deleted; they are history and groundwork for [#2](https://github.com/prasys/nz-leaf-discovery/issues/2).
 
 ### 0.1 What changed and what did not
 
 - **Changed:** 11 bytes in hidden p2 `/SkinChange/002/substance.skn` (LBA 29925953). The Clock screen's minute row now calls NaviSetCC `Get/SetExpOffsetHourSetting` (DISPID 0x69/0x6A) instead of the minute pair (0x6B/0x6C), its button limits go from ±59 to ±12, and two event sinks swap so the label refreshes on the hour event. Offsets are in §2. **[confirmed, `cmp` of build vs source]**
 - **Baseline:** the skin on this card was not stock when this work started. It had already been modified, which the baseline pins in `write_skin.py` and `hour_row_plan.py` record, and the hour-row edit sits on top of it.
 - **Not changed:** no firmware. G214, UP14 and PM13 are not touched by this fix, and neither are the VSRAM store or the trailer of the skin. The value is stored by the unit's own setter when the owner presses + or −.
-- **Still on the card from earlier work:** the fixed +13 G214 probe from 08 §8.1. It is believed dormant (a +13 base plus +3/+4 would overshoot NZ time) **[likely]**. Retiring it is #47.
+- **Still on the card from earlier work:** the fixed +13 G214 probe from 08 §8.1. It is believed dormant (a +13 base plus +3/+4 would overshoot NZ time) **[likely]**. Retiring it is [#5](https://github.com/prasys/nz-leaf-discovery/issues/5).
 
 ### 0.2 Assumptions
 
@@ -26,8 +26,8 @@ Each of these is something the fix relies on. Do not change one without saying s
 | The hour value goes through `OBJ_Time_writeOffset` into `getTotalOffset`, which feeds the displayed clock | **[likely, strong]** | static trace §1.3; owner-reported working clock |
 | The stored minute offset still adds, and it is 0 here | **[confirmed]** card read | ExpSet min word `0x3B` (= 0) in both copies (§1.4) |
 | GPS updates write only GMT and leave the user offset alone, so reconnecting the antenna does not undo +3/+4 | **[likely, static]**; untested | `OBJ_Time_writeGMT` touches 0x00–0x0B only (§4, §4.1). The owner's manual Set Clock revert (§4.1) is a different mechanism |
-| The offset persists across power cycles | **[likely, static]**; untested | successful restore keeps the Time record and ExpSet (§4). Nothing re-applies ExpOffsetHour at boot, so a Time-only reset would show +3 in the UI while running JST (§4). #46 |
-| The SD VSRAM copy is where the setting persists | **[guess]** | §1.4 reads the SD copy. The unit also keeps an internal-NAND SRAM (`FMD1:` blocks 0x1FE/0x1FF), see 06 §4 and [13](13-prior-art-leafsdtools.md) §3.3. Which one is restored first is open (#50) |
+| The offset persists across power cycles | **[likely, static]**; untested | successful restore keeps the Time record and ExpSet (§4). Nothing re-applies ExpOffsetHour at boot, so a Time-only reset would show +3 in the UI while running JST (§4). [#4](https://github.com/prasys/nz-leaf-discovery/issues/4) |
+| The SD VSRAM copy is where the setting persists | **[guess]** | §1.4 reads the SD copy. The unit also keeps an internal-NAND SRAM (`FMD1:` blocks 0x1FE/0x1FF), see 06 §4 and [13](13-prior-art-leafsdtools.md) §3.3. Which one is restored first is open ([#6](https://github.com/prasys/nz-leaf-discovery/issues/6)) |
 | The skin trailer value `0x0F6596FD` is not checked, or does not cover these bytes | **[confirmed]** for in-place builds | the unit accepted build `6a54198a` and the hour-row build with the trailer unchanged (§7) |
 | The card's skin as found (already modified, `ea5b5a34…`) is the baseline | **[confirmed]** | the 11 baseline bytes are identical in `ea5b5a34…` and in build `6a54198a…` (§2) |
 | The fixed +13 G214 probe does not run | **[likely]** | the clock does not overshoot (§7). The running G214 bytes were never fingerprinted (08 §14.3) |
@@ -40,16 +40,16 @@ Each of these is something the fix relies on. Do not change one without saying s
 | The row changes hours and the head-unit clock shows correct NZ time | **owner report**, 2026-10-25, no photo or capture (§7) |
 | Write landed byte-exact on the card | **receipt**: `WRITTEN_AND_BYTE_VERIFIED_HARDWARE_UNTESTED`, full read-back (§7) |
 | Button range ±12, label refresh on the hour event | static decode; not separately observed |
-| Survives GPS reconnect, power cycles, overnight | static only (#46) |
-| Dash clock and charge/climate timers follow | static only (#46); Vehicle.exe reads local time incl. offset (§4) |
+| Survives GPS reconnect, power cycles, overnight | static only ([#4](https://github.com/prasys/nz-leaf-discovery/issues/4)) |
+| Dash clock and charge/climate timers follow | static only ([#4](https://github.com/prasys/nz-leaf-discovery/issues/4)); Vehicle.exe reads local time incl. offset (§4) |
 | Stored ExpSet hour word is 15 or 16 | not read back yet (§5 step 5) |
 
 ### 0.4 Known limitations
 
-- The row label still reads "N Minutes" (#45). The suffix string is shared with two other labels (§2).
+- The row label still reads "N Minutes" ([#3](https://github.com/prasys/nz-leaf-discovery/issues/3)). The suffix string is shared with two other labels (§2).
 - Minute fine-tuning is gone while the row drives hours.
-- No automatic DST. The owner moves +3 ↔ +4 by hand in late September and early April (#44). The v2 manual DST toggle (§8) is built and pinned but **untested and not written**.
-- Car validation is still open (#46).
+- No automatic DST. The owner moves +3 ↔ +4 by hand in late September and early April ([#2](https://github.com/prasys/nz-leaf-discovery/issues/2)). The v2 manual DST toggle (§8) is built and pinned but **untested and not written**.
+- Car validation is still open ([#4](https://github.com/prasys/nz-leaf-discovery/issues/4)).
 
 ### 0.5 Repeat or roll back (owner runs `--apply`)
 
@@ -71,8 +71,8 @@ Use a card whose live `substance.skn` is one of the pinned builds in `tools/tran
    ```
    It must print `READ_ONLY_PREFLIGHT_PASSED`.
 4. **Apply:** the owner reruns the same command with `--apply` in their own terminal. Expect `WRITTEN_AND_BYTE_VERIFIED_HARDWARE_UNTESTED`. The receipt goes to `~/nissan/work/translation/writes/<UTC>/write-report.json`, next to a rollback snapshot `substance-before-write.bin`. The 2026-10-25 receipt is `20261025T011928Z`.
-5. **In the car:** Settings → Clock → offset row to +3 (NZST) or +4 (NZDT). Then run the #46 checks.
-6. **Roll back:** run steps 3–4 with `--build` set to the previous build, for example build `6a54198a` `~/nissan/work/translation/build/substance.skn` (`6a54198a…`), or the stock carve `~/nissan/work/translation/substance.skn` (`ea5b5a34…`) to return to the skin as found. Set the row back to 0 first if you want the stored offset cleared, because the skin rollback does not touch the stored hour. A whole-card restore from the 2026-10-24 backup would also undo the G214 probe and the translation; that is a separate owner decision (#47).
+5. **In the car:** Settings → Clock → offset row to +3 (NZST) or +4 (NZDT). Then run the [#4](https://github.com/prasys/nz-leaf-discovery/issues/4) checks.
+6. **Roll back:** run steps 3–4 with `--build` set to the previous build, for example build `6a54198a` `~/nissan/work/translation/build/substance.skn` (`6a54198a…`), or the stock carve `~/nissan/work/translation/substance.skn` (`ea5b5a34…`) to return to the skin as found. Set the row back to 0 first if you want the stored offset cleared, because the skin rollback does not touch the stored hour. A whole-card restore from the 2026-10-24 backup would also undo the G214 probe and the translation; that is a separate owner decision ([#5](https://github.com/prasys/nz-leaf-discovery/issues/5)).
 
 ### 0.6 What didn't work, and why the fix moved to the skin
 
@@ -81,14 +81,14 @@ Before the hour row, three lower-level routes were tried, plus one analysed and 
 | attempt | what was tried and written | what the car showed | likely reason | impact now |
 |---|---|---|---|---|
 | **NZ-clock payload in G214** (v2) | a 708-byte ARM hook at OBJDLL `getTotalOffset` (`0x40e2c360`) that applies NZ rules. The G214 slot was rebuilt and written at LBA 157696, 30,708,224 bytes, byte-verified (08 §2–§5) | both clocks stayed on JST **[confirmed, owner report]** (08 §7) | the patched module never ran **[likely]**. A NOR/SD header compare in PM13 AppLaunch can fall back to the internal-flash copy (08 §14.2, unobserved). Invalid app UTC is the other open reading (08 §14.3) | superseded by the probe below. Snapshot `nz-clock/writes/20261024T084550Z/G214-before-write.bin` holds stock G214 |
-| **Fixed +13 probe in G214** | a minimal diagnostic: `getTotalOffset` returns a fixed +13 h. Written 2026-10-25, 30,700,032 bytes, byte-verified, slot SHA256 `a232889d…` (08 §8.1) | "still no change" **[confirmed, owner report]** | as above. A dormant module is consistent with the hour row now giving correct time without overshoot **[likely]** (§7) | **still on the card, dormant (#47)**. Snapshot `nz-clock/writes/20261025T002153Z/G214-before-write.bin` holds the v2 range. Stock G214 is in the 20261024 snapshot and the full backup; no pinned restore writer yet (#52) |
-| **Slot repacking** (the packaging behind both rows above) | split OBJDLL `.text` into a new o32 section, re-compressed MTCP with liblz4 HC, recomputed every known sum (chunk, MTLD part, SUM4). Two header fields (+0x14, MTLD +0x08) left stock because their algorithm is unknown (08 §3–§4) | as above | either the loader rejects the repacked slot (unknown fields, header gate), or it never loads this copy **[guess]**. Write and read-back succeeded, so the card bytes are right **[confirmed]** | no extra state beyond the G214 rows. G214 +0x14 and MTLD +0x08 stay open (#9) |
+| **Fixed +13 probe in G214** | a minimal diagnostic: `getTotalOffset` returns a fixed +13 h. Written 2026-10-25, 30,700,032 bytes, byte-verified, slot SHA256 `a232889d…` (08 §8.1) | "still no change" **[confirmed, owner report]** | as above. A dormant module is consistent with the hour row now giving correct time without overshoot **[likely]** (§7) | **still on the card, dormant ([#5](https://github.com/prasys/nz-leaf-discovery/issues/5))**. Snapshot `nz-clock/writes/20261025T002153Z/G214-before-write.bin` holds the v2 range. Stock G214 is in the 20261024 snapshot and the full backup; no pinned restore writer yet ([#8](https://github.com/prasys/nz-leaf-discovery/issues/8)) |
+| **Slot repacking** (the packaging behind both rows above) | split OBJDLL `.text` into a new o32 section, re-compressed MTCP with liblz4 HC, recomputed every known sum (chunk, MTLD part, SUM4). Two header fields (+0x14, MTLD +0x08) left stock because their algorithm is unknown (08 §3–§4) | as above | either the loader rejects the repacked slot (unknown fields, header gate), or it never loads this copy **[guess]**. Write and read-back succeeded, so the card bytes are right **[confirmed]** | no extra state beyond the G214 rows. G214 +0x14 and MTLD +0x08 stay open ([#11](https://github.com/prasys/nz-leaf-discovery/issues/11)) |
 | **Saved zone set to +13** in VSRAM | both nav copies edited to zone +13, type 0, with sums and generations recomputed. Byte-verified before the drive (08 §11) | no change; the post-drive audit found both copies **rewritten to Japan/+9** with newer generations **[confirmed, read-back]** (08 §12–§13) | the unit re-defaults and re-saves the zone (the −7 reset path or a restore from another store) **[likely]** | nothing left behind; the unit overwrote it. Lesson: use the live setter, never raw store bytes |
 | **Widen the minute range** to ±180/±240 | analysis only, nothing built or written (§3) | — | the NaviSetCC setter rejects \|m\| > 59 and the getter maps larger stored values to 0, so it needs a G214 patch, and G214 patches don't take effect | none |
 
 **Why this led to the skin fix.** Every firmware-level change was written and verified on the card but never showed in the car, and no run could show whether patched G214 code was executing. The skin, by contrast, visibly loads from the card: earlier skin edits appeared in the car. The firmware already had a ±12 h setter that the skin never called (§1.3). Pointing the skin at it needs no firmware change, uses the unit's own validation and storage, and avoids the unknown header fields. **[confirmed, owner report]** that it works.
 
-**Risk and cleanup.** The dormant +13 probe would add to the hour row if it ever ran (+3/+4 on top of +13 overshoots NZ time), for example after a change in how G214 is loaded. Retiring it is #47. Every write left a receipt and a mode-0444 rollback snapshot under `~/nissan/work/nz-clock/writes/` or `translation/writes/`, and the full backup `20261024T073738Z` predates all of them ([BACKUPS.md](../BACKUPS.md) §5–§6).
+**Risk and cleanup.** The dormant +13 probe would add to the hour row if it ever ran (+3/+4 on top of +13 overshoots NZ time), for example after a change in how G214 is loaded. Retiring it is [#5](https://github.com/prasys/nz-leaf-discovery/issues/5). Every write left a receipt and a mode-0444 rollback snapshot under `~/nissan/work/nz-clock/writes/` or `translation/writes/`, and the full backup `20261024T073738Z` predates all of them ([BACKUPS.md](../BACKUPS.md) §5–§6).
 
 ## TL;DR
 
@@ -285,13 +285,13 @@ Proposed use on a JST base: leave the hour row at **+3** all year and turn the t
 
 Build `f255f869…` (`work/hour-offset-ui/build-v2-dst/`, from v1 `ec1138c8`). `cmp` against v1 shows exactly the 5 bytes. It is pinned in `write_skin.py`. Tests: 14 hour-offset tests and 17 writer tests pass. Untested in the car.
 
-The auto-DST groundwork for #44: NaviGeneralCC (object 0x8F) exposes `getHeadertime{Hour,Minutes,AMPM,DayofWeek,Year,Month,Day}` (DISPIDs 2/3/6/7/0xC/0xD/0xE). Its hour- and minute-tick events have always-on sinks (records 279/280). A script added there could set the toggle by the NZ rule, but that would grow a record and need `--repack`.
+The auto-DST groundwork for [#2](https://github.com/prasys/nz-leaf-discovery/issues/2): NaviGeneralCC (object 0x8F) exposes `getHeadertime{Hour,Minutes,AMPM,DayofWeek,Year,Month,Day}` (DISPIDs 2/3/6/7/0xC/0xD/0xE). Its hour- and minute-tick events have always-on sinks (records 279/280). A script added there could set the toggle by the NZ rule, but that would grow a record and need `--repack`.
 
 ## 9. Follow-up work
 
-- [#44: Automatic NZ DST](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/44): calculate seasonal changes and apply the working offset path without double adjustment. The stock AutoDst toggle only adds a fixed hour.
-- [#45: Correct the label](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/45): replace this row's “Minutes” suffix without altering other minute labels.
-- [#46: Car validation](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/46): dash, charge/climate timers, GPS reconnect, power cycles and overnight persistence.
-- [#47: Retire the dormant fixed +13 probe](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/47): optional owner-run normalization with byte-verified rollback; avoid a future double correction.
+- [#2: Automatic NZ DST](https://github.com/prasys/nz-leaf-discovery/issues/2): calculate seasonal changes and apply the working offset path without double adjustment. The stock AutoDst toggle only adds a fixed hour.
+- [#3: Correct the label](https://github.com/prasys/nz-leaf-discovery/issues/3): replace this row's “Minutes” suffix without altering other minute labels.
+- [#4: Car validation](https://github.com/prasys/nz-leaf-discovery/issues/4): dash, charge/climate timers, GPS reconnect, power cycles and overnight persistence.
+- [#5: Retire the dormant fixed +13 probe](https://github.com/prasys/nz-leaf-discovery/issues/5): optional owner-run normalization with byte-verified rollback; avoid a future double correction.
 
-Issue [#29](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/29) remains the umbrella for the clock work. The manual head-unit workaround is demonstrated by owner report; automatic DST and end-to-end vehicle validation are incomplete.
+Issue [#1](https://github.com/prasys/nz-leaf-discovery/issues/1) remains the umbrella for the clock work. The manual head-unit workaround is demonstrated by owner report; automatic DST and end-to-end vehicle validation are incomplete.

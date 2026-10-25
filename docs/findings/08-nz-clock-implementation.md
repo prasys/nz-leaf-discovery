@@ -1,4 +1,4 @@
-# NZ clock implementation and deployment plan (#29)
+# NZ clock implementation and deployment plan ([#1](https://github.com/prasys/nz-leaf-discovery/issues/1))
 
 2026-10-24. Follows [07](07-nz-clock-design.md). Claude Sonnet 5.5 implemented
 the freestanding C calculation and host tests; Codex reviewed it, implemented
@@ -682,12 +682,12 @@ attach/init and multi-process write safety are proven. Vehicle.exe's EvTimer dis
 message/payload layout and event-evaluator poll cadence (`FUN_40e2c068`)
 remain open.
 
-### 14.6 GPS validity and hemisphere (tracked in issue #31)
+### 14.6 GPS validity and hemisphere (tracked in issue [#16](https://github.com/prasys/nz-leaf-discovery/issues/16))
 
 The owner reports a **3D fix** and "N" beside latitude / "E" beside
 longitude, so receiver no-fix is less likely — but the app's UTC-validity
 byte after `OBJ_Time_writeGMT` is still unobserved. Hemisphere labelling is
-tracked in issue #31: static tokens `GPS_LatitudeDirection`
+tracked in issue [#16](https://github.com/prasys/nz-leaf-discovery/issues/16): static tokens `GPS_LatitudeDirection`
 (VA 0x425b8874, file 0x23674) and `GPS_LongitudeDirection`
 (VA 0x425b8850, file 0x23650) exist in G214 `NaviGuideCC.dll`, but token
 metadata is not getter/page-binding proof, and the parent's traces
@@ -695,7 +695,7 @@ metadata is not getter/page-binding proof, and the parent's traces
 `gps-guide-properties.log`) could not resolve the guide property lookup
 (zero matching functions) — an explicit limitation. No coordinates or
 personal data recorded. Tracked in
-[issue #31](https://github.com/prasys/nissan-leaf-japanese-to-nz/issues/31),
+[issue #16](https://github.com/prasys/nz-leaf-discovery/issues/16),
 which includes a separate bounded signs/status-only logging plan that is
 not yet implemented.
 

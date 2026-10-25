@@ -1,4 +1,4 @@
-# Prior art: leafsdtools (refs #49)
+# Prior art: leafsdtools
 
 2026-10-25. Source: <https://github.com/developerfromjokela/leafsdtools/>, cloned at commit `422c6538583854aa1d2fab046bf4f915670b0f7c` (2026-10-24) into `~/nissan/work/prior-art/leafsdtools/`. It was read as untrusted data. **Nothing in it was built or run**, including the prebuilt `LeafSDTools/ARMV4IRel/LeafSDTools.exe` and `SH4Rel/LeafSDTools.exe`, the `ci/*.py` scripts and the release image (not downloaded). The one check below is our own script, run with `python3 -I` against our read-only image.
 
@@ -63,7 +63,7 @@ No skin, `.skn`, trailer, clock or timezone code in the repo (`grep -i "skn\|ski
 
 - QY7 units bind the card with an SD password lock (CMD42-style lock through `DSK8:`), keyed by a PIN in internal PROD flash. On QY8 the tool refuses SD lock control. **[confirmed, source]**
 - Our card images and reads normally on a Mac, so it is not password-locked **[confirmed]**. That fits a QY8-family unit.
-- The high-entropy blobs at LBA 800768–800772 (#12) and `MagicGate.dll` (present in our UP14 and PM13) are not mentioned by leafsdtools. Card binding on QY8 is still **[open]**.
+- The high-entropy blobs at LBA 800768–800772 ([#10](https://github.com/prasys/nz-leaf-discovery/issues/10)) and `MagicGate.dll` (present in our UP14 and PM13) are not mentioned by leafsdtools. Card binding on QY8 is still **[open]**.
 
 ### 2.5 Write tools
 
@@ -78,15 +78,15 @@ No skin, `.skn`, trailer, clock or timezone code in the repo (`grep -i "skn\|ski
 
 1. **Confirms** the NK SUM4 rule and the +0x30 u16 (§2.2). Update made in 05 §1.2 and 06 §6.
 2. **Confirms** 06 §4: our G214 `MaintenanceCC` dumps `VSram_All.bin` from records 0x1FE/0x1FF and `VFlash_All.bin` from 0x1FD with ioctl `0x1112000`. leafsdtools uses the same ioctl and the same block numbers on `FMD1:` for QY8 "SRAM"/"VFlash". Two independent sources agree **[confirmed]**.
-3. **Raises a question for 12 §1.4 / §4**: the unit's SRAM lives in internal NAND, and the SD VSRAM (`VSram_SD_All.bin`, `DSK1:` LBAs 0xC4000 = 802816 and 0xC5000 = 806912) is a separate area. Our ExpSet read-back uses the SD copy. Whether it is the primary store or a mirror of the internal SRAM is **[open]**. This matters for persistence (#46) and for trusting `expset_scan.py` read-backs.
+3. **Raises a question for 12 §1.4 / §4**: the unit's SRAM lives in internal NAND, and the SD VSRAM (`VSram_SD_All.bin`, `DSK1:` LBAs 0xC4000 = 802816 and 0xC5000 = 806912) is a separate area. Our ExpSet read-back uses the SD copy. Whether it is the primary store or a mirror of the internal SRAM is **[open]**. This matters for persistence ([#4](https://github.com/prasys/nz-leaf-discovery/issues/4)) and for trusting `expset_scan.py` read-backs.
 4. **Weakens** the risk note in [02](02-unit-and-clock.md) §7 row 6 that a signature (`CWS/CERT/ca.der`) may block modified firmware: a modified UP14-position image apparently boots on QY8 **[likely]**. It says nothing about G214, whose load path has its own NOR/SD header gate (08 §14.2), and our G214 probe still shows no effect.
 5. **Contradicts the "Carwings" label** in 02 §0 if our unit is QY8: leafsdtools calls QY7XXX "CarWings" (SH-4) and QY8XXX "NissanConnect" (ARM). Ours is ARM (05 §3) with the QY8 update-slot offset. The 01 guess that the old FAT label `NCG2K2_16G` means "Nissan Connect Gen2" fits. **[likely]**; the chassis sticker or the owner's Version Information screen would settle it.
 
 ## 4. Open questions and follow-ups
 
-- Is the SD VSRAM the primary store for ExpSet, or a mirror of internal NAND SRAM? #50.
-- Confirm the unit family (QY8XXX?) from the sticker or a part number. #51.
-- The NK SUM4 exclusion width (+0x36..0x3F, +0x8C..0x8F) cannot be separated on this card; noted on #9.
-- Pinned restore writers (G214 snapshot, whole card): #52.
-- QY8 card binding (#12) gets no help from leafsdtools.
+- Is the SD VSRAM the primary store for ExpSet, or a mirror of internal NAND SRAM? [#6](https://github.com/prasys/nz-leaf-discovery/issues/6).
+- Confirm the unit family (QY8XXX?) from the sticker or a part number. [#7](https://github.com/prasys/nz-leaf-discovery/issues/7).
+- The NK SUM4 exclusion width (+0x36..0x3F, +0x8C..0x8F) cannot be separated on this card; noted on [#11](https://github.com/prasys/nz-leaf-discovery/issues/11).
+- Pinned restore writers (G214 snapshot, whole card): [#8](https://github.com/prasys/nz-leaf-discovery/issues/8).
+- QY8 card binding ([#10](https://github.com/prasys/nz-leaf-discovery/issues/10)) gets no help from leafsdtools.
 - leafsdtools could take an internal-NAND backup, which we do not have. Running it means executing third-party code on the car, which agents must not do or suggest; that is purely the owner's call.

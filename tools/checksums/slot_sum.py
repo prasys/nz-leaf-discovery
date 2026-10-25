@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the firmware slot checksums (issue #9). Read-only.
+"""Verify the firmware slot checksums (issue #11). Read-only.
 
 Usage: python3 -I tools/checksums/slot_sum.py [--img PATH] [--recompute]
 

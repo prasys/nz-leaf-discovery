@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the VSRAM store checksums and A/B generations (issue #10). Read-only.
+"""Verify the VSRAM store checksums and A/B generations. Read-only.
 
 Usage: python3 -I tools/checksums/vsram.py [--src PATH] [--base SECTOR] [--recompute]
 

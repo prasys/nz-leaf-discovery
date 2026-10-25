@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan (never write) the skin-only "minute row -> hour row" edit (issue #29).
+"""Plan (never write) the skin-only "minute row -> hour row" edit (issue #1).
 
 The Clock settings screen's offset row calls NaviSetCC GetExpOffsetMinSetting (DISPID
 0x6B) and SetExpOffsetMinSetting (0x6C) and limits the value to -59..+59.  The stock

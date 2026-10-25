@@ -41,7 +41,7 @@ The sectors outside the partitions hold Windows CE ROM images. Each starts with 
 | 667648 | 0x14600000 | `UP14XNNI.139` | 470-4651-16 | 0x18E2058 (24.9 MiB) | OS + drivers: **navdrv.dll** (GPS), `carplay.exe`, `antitheft.exe`, updaters (`hdupdate`, `dabmicomupdate`, `fullsegupdate`) |
 | 749568 | 0x16E00000 | `PM13XKNI.039` | 470-4650-14 | 0x127C25C (18.5 MiB) | OS + drivers (similar set to UP14, no CarPlay seen) |
 | 790528 | 0x18200000 | `OIXXXVNI.004` (container tag `BASS`) | 470-5049-00 | — | unknown data container |
-| 29965064 | 0x3927611FC | `SKINSK18NNNI.183` | 470-6253-48 | — | **Correction (#32):** not a separate image. This is the 36-byte trailer of hidden p2 `/SkinChange/002/substance.skn` (sectors 29925953–29965064). See [11](11-skin-pipeline.md). |
+| 29965064 | 0x3927611FC | `SKINSK18NNNI.183` | 470-6253-48 | — | **Correction:** not a separate image. This is the 36-byte trailer of hidden p2 `/SkinChange/002/substance.skn` (sectors 29925953–29965064). See [11](11-skin-pipeline.md). |
 
 **Caveat [important]:** these images may not all belong to one unit generation. `UP14XNNI` includes `CarPlay.exe`, which a 2015 LEAF unit would not normally have. The skin also has strings for many models (GT-R style "ACCEL G / TOTAL TIME" meters, Facebook/Twitter widgets). The card may be a reused/refurbished SystemSD, or Clarion ships one image set for a whole family. Coordinate with the `raw-areas` notes.
 

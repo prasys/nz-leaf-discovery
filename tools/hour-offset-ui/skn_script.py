@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Read-only decoder for the AUI script bytecode in substance.skn (issue #29).
+"""Read-only decoder for the AUI script bytecode in substance.skn (issue #1).
 
 The grammar was recovered from G214 auirtdll.dll; see docs/findings/12-hour-offset-ui.md.
 
