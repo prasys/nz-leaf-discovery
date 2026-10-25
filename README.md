@@ -150,7 +150,7 @@ That is why the fix moved up a layer: the skin visibly loads from the card, and 
 - **CE ROM tools**: ROMHDR/e32/o32 extractor, LZX "CECompress", MTCP/LZ4 unpacker, registry hive reader
 - **Ghidra headless** (`ARM:LE:32:v7`) with small Java/Python scripts for the decompiler traces
 - **Skin tools**: container decoder, bytecode decoder, hour-row builder, COM typelib/DISPID lister
-- **Pinned card writers** (`backup_card.py`, `write_skin.py`): preflight by default, the owner applies ([BACKUPS](docs/BACKUPS.md))
+- **Read-only imaging and pinned card writers** (`image_card.py`, `backup_card.py`, `write_skin.py`): preflight by default, the owner applies ([BACKUPS](docs/BACKUPS.md))
 - **AI agents**: Claude Code, Codex and opencode, one GitHub issue per branch, each in its own Orca worktree
 
 **Working on this with an agent?** Point your agent (Claude Code, Codex, opencode, …) at [`AGENTS.md`](AGENTS.md) / `CLAUDE.md`. It has the rules and paths to figure out the rest.
@@ -166,7 +166,7 @@ That is why the fix moved up a layer: the skin visibly loads from the card, and 
 | `mtcp/` | verified LZ4 decoder and G214 module inventory ([06](docs/findings/06-mtcp-lz4.md)) |
 | `hmi-skin/` | COM typelib / DISPID lister |
 | `clock-analysis/` | Ghidra scripts from the clock traces ([07](docs/findings/07-nz-clock-design.md), [08](docs/findings/08-nz-clock-implementation.md)) |
-| `nz-clock/` | `backup_card.py`, the G214 writer and the historical ARM candidate ([08](docs/findings/08-nz-clock-implementation.md)) |
+| `nz-clock/` | `image_card.py` (read-only imaging), `backup_card.py`, the G214 writer and the historical ARM candidate ([08](docs/findings/08-nz-clock-implementation.md)) |
 | `translation/` | skin container reader and the pinned `write_skin.py` card writer ([11](docs/findings/11-skin-pipeline.md)) |
 | `hour-offset-ui/` | skin bytecode decoder, hour-row build, ExpSet read-back ([12](docs/findings/12-hour-offset-ui.md)) |
 

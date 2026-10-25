@@ -22,6 +22,7 @@ We are reverse-engineering the Clarion-built nav/head unit of a JDM Nissan LEAF 
 | `docs/findings/NN-*.md` | Findings per topic. Update the relevant file, or add a new one as part of your PR (numbering below). |
 | `docs/BACKUPS.md` | Imaging, backups, writing and rollback: the one guide for anything touching a card |
 | `tools/<topic>/*.py` | Read-only parsers. Stdlib-only Python 3 where possible. |
+| `tools/nz-clock/image_card.py` | Read-only card imaging to `$NISSAN_IMG`; verifies the image if it exists, `--adopt` for a hand-made one (`docs/BACKUPS.md` §1). Owner runs `--image` with sudo |
 | `binaries/MANIFEST.md` | sha256 of out-of-tree binaries |
 | `$NISSAN_IMG` | Card image, default `~/nissan/sdcard/nissan-sd-485-1972-00.img` |
 | `~/nissan/sdcard/mnt/p1` | Maintainer's machine: partition 1, mounted read-only (may be absent after a reboot; the image is the source of truth) |
@@ -34,7 +35,7 @@ Key image offsets (512-byte sectors): firmware slots at 65536 (G314), 157696 (G2
 
 ## Card writes
 
-Start with `docs/BACKUPS.md`. The writers are on main: `tools/nz-clock/backup_card.py` (full-card backup) and `write_card.py` (G214 slot, history in `docs/findings/08-nz-clock-implementation.md`). For skins, use the pinned `tools/translation/write_skin.py` workflow in `docs/findings/11-skin-pipeline.md` and `12-hour-offset-ui.md` §0.5.
+Start with `docs/BACKUPS.md`. `tools/nz-clock/image_card.py` makes the analysis image (read-only; verify-only if the image exists; the owner runs `--image`). The writers are on main: `tools/nz-clock/backup_card.py` (full-card backup) and `write_card.py` (G214 slot, history in `docs/findings/08-nz-clock-implementation.md`). For skins, use the pinned `tools/translation/write_skin.py` workflow in `docs/findings/11-skin-pipeline.md` and `12-hour-offset-ui.md` §0.5.
 
 - The writer is a **read-only preflight by default**.
 - `--apply` requires `--device`, a verified full-card backup made with `backup_card.py`, and pinned SHA256s for the backup, the payload and the live baseline range. It refuses on any mismatch.
@@ -71,7 +72,7 @@ Nothing needs building to read the docs or run the parsers.
 | optional | Ghidra (05 §3 used 12.2) and the JDK it needs (`JAVA_HOME` set for headless runs) | the decompiler traces in `tools/clock-analysis/` |
 | optional | `liblz4` with `LZ4_compress_HC` (found via `ctypes.util.find_library`, else the Homebrew path) | `tools/nz-clock/pack_slot.py` (G214 repacking, history only) |
 | optional | `clang` with the `armv7-none-eabi` target, `ld.lld`, `llvm-objcopy`, `llvm-objdump` (08 §4) | `tools/nz-clock/build.py` and `build_fixed_probe.py` (the historical firmware payload) |
-| macOS only | `diskutil`, raw `/dev/rdiskN`, `sudo` | `backup_card.py`, `write_skin.py`, `write_card.py`, `set_saved_zone.py`, and `audit_after_boot.py --device` |
+| macOS only | `diskutil`, raw `/dev/rdiskN`, `sudo` | `image_card.py` (preflight and `--image`), `backup_card.py`, `write_skin.py`, `write_card.py`, `set_saved_zone.py`, and `audit_after_boot.py --device` |
 
 Everything else reads files and runs on any OS with Python. Only the tools in the last row touch a device, through `--device`. Even their read-only runs (the writers' preflight, `audit_after_boot.py`) open the raw card, usually with `sudo`, so the owner runs them (BACKUPS §2, §4).
 

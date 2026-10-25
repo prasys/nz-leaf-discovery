@@ -4,19 +4,45 @@ One guide for everything that touches a physical card. Read it before you write 
 
 **Who runs what.** Agents and helpers may prepare commands and builds. Only the card's owner runs the commands marked *owner*: they need `sudo`, raw device access, or they write. That is a hard rule in [AGENTS.md](../AGENTS.md).
 
-## 1. Image the card read-only (owner)
+## 1. Image the card read-only with `image_card.py` (owner)
 
-Do this once, before anything else, and before macOS mounts the card (Finder writes `.Spotlight-V100`/`.fseventsd` to any volume it mounts).
+Do this once, before anything else, and before macOS mounts the card (Finder writes `.Spotlight-V100`/`.fseventsd` to any volume it mounts). `tools/nz-clock/image_card.py` writes `$NISSAN_IMG` (default `~/nissan/sdcard/nissan-sd-485-1972-00.img`, or `--out`) only if it doesn't exist. It opens the device `O_RDONLY`, never mounts, unmounts or overwrites, and records the SHA256. It takes the size from you (`--expect-bytes`), so it also works for other cards.
 
 ```sh
-diskutil list                                   # find the card, e.g. disk9 (numbers change every time)
-diskutil unmountDisk /dev/disk9
+diskutil list                                   # find the card, e.g. disk9; note its size in bytes
+diskutil unmountDisk /dev/disk9                 # owner step: the tool refuses mounted partitions
+# 1. preflight (read-only, no sudo): must print READ_ONLY_PREFLIGHT_PASSED and the exact command
+python3 -I tools/nz-clock/image_card.py --device disk9 --expect-bytes 16206790656
+# 2. owner: run the printed command (same arguments plus --out and --image)
+sudo python3 -I tools/nz-clock/image_card.py --device disk9 --expect-bytes 16206790656 --out ~/nissan/sdcard/nissan-sd-485-1972-00.img --image
+```
+
+It copies to a temp file next to the target, fsyncs, re-reads and hashes it, links it into place, writes `<image-name>.report.json` next to it (UTC time, device identity, bytes, SHA256), and sets both files to 0444. Status lines: `READ_ONLY_PREFLIGHT_PASSED`, `IMAGED_AND_VERIFIED`, `REFUSED`, `IMAGING_FAILED`. Exit 0 ok, 1 refused or failed, 2 usage.
+
+Preflight also proves the target directory can take the image: it tries a hard link on tiny probe files, and if the file system has none (exFAT) it tries macOS `renamex_np` with `RENAME_EXCL`. If neither works it refuses, before any copy. Pick `--out` on APFS/HFS+ in that case.
+
+**If the image already exists** the tool only verifies it (size, SHA256 against `<image-name>.report.json`, mode 0444, both files), prints `IMAGE_VERIFIED` and exits without touching `diskutil` or any device. Exit 3 means verification failed. Several images can share a directory, each with its own report. An old shared `image-report.json` is still read, but only if its `image` field names that file.
+
+**Image made by hand with `dd`** (no report): make it read-only yourself, then adopt it. This hashes the file once and writes the report; it opens no device and never changes the image.
+
+```sh
+chmod 0444 ~/nissan/sdcard/nissan-sd-485-1972-00.img     # adopt refuses otherwise
+python3 -I tools/nz-clock/image_card.py --out ~/nissan/sdcard/nissan-sd-485-1972-00.img --adopt
+```
+
+The report says `ADOPTED_UNVERIFIED_SOURCE` with no device identity: the card itself was never compared with the file. It refuses if a report already exists.
+
+Everything else in this repo reads the image, never the card.
+
+**Fallback: manual `dd`.** Same prerequisites, no checks:
+
+```sh
 sudo dd if=/dev/rdisk9 of=$HOME/nissan/sdcard/nissan-sd-<label>.img bs=4m status=progress
 shasum -a 256 $HOME/nissan/sdcard/nissan-sd-<label>.img
 chmod 0444 $HOME/nissan/sdcard/nissan-sd-<label>.img
 ```
 
-`if=` is the card and `of=` is a file. Check that twice. Everything else in this repo reads the image, never the card.
+**`if=` is the card and `of=` is a file. Swap them and the card is destroyed. Check that twice.**
 
 ## 2. Full-card backup with `backup_card.py` (owner)
 
