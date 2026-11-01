@@ -28,14 +28,17 @@ We are reverse-engineering the Clarion-built nav/head unit of a JDM Nissan LEAF 
 | `~/nissan/sdcard/mnt/p1` | Maintainer's machine: partition 1, mounted read-only (may be absent after a reboot; the image is the source of truth) |
 | `~/nissan/work/raw-areas/` | Carved firmware slots (`slot*_*.bin`), `settings_800768-818431.bin`, VSRAM areas, ROMHDR listings |
 | `~/nissan/work/prior-art/` | Third-party repos (leafsdtools, …) cloned as untrusted data: read, never run |
+| `tools/language-speech/` | GID catalogue, SSC decoder/encoder (`ssc_decode.py`/`ssc_encode.py`), ElevenLabs renderer, `import_wavs.py` (any other TTS or recordings), `prepare_greeting.py` builder, `clip_pack.py` (list clips, extract the GID, export/build release packs) and the pinned `write_gid.py` writer (`docs/findings/14-voice-prompts.md`, owner guide `docs/guides/english-voice.md`) |
+| `translations/` | Voice tables: `voice-prompts.tsv` (all clips), `voice-prompt-overrides.tsv` (locked greeting/EV wording), slot fits ([README](translations/README.md)) |
+| `$NISSAN_ROOT/work/language-speech/` | Stock GID, `rom/Speech.exe`, renders, builds (`en-greeting/`, `en-ev/`), write receipts and release packs |
 
 Key image offsets (512-byte sectors): firmware slots at 65536 (G314), 157696 (G214/MTCP), 667648 (UP14 NK), 749568 (PM13 NK), 790528 (BASS); settings/VSRAM at 800768–818431; hidden p2 at 29925377.
 
-**Findings numbering.** `05-` and `06-` are each used by two files. They keep their names so existing links stay valid; don't renumber them. Before you pick a number, check `docs/findings/` on main **and** the files in open PRs (`gh pr list`, then `gh pr view <n> --json files`), and take the next number nobody uses. 01–08 and 11–13 are on main. 09 and 10 are reserved for work not published here (map geometry and the earlier translation notes), and a third `05-map-format.md` is planned, so the next free number is **14**.
+**Findings numbering.** `05-` and `06-` are each used by two files. They keep their names so existing links stay valid; don't renumber them. Before you pick a number, check `docs/findings/` on main **and** the files in open PRs (`gh pr list`, then `gh pr view <n> --json files`), and take the next number nobody uses. 01–08 and 11–14 are on main. 09 and 10 are reserved for work not published here (map geometry and the earlier translation notes), and a third `05-map-format.md` is planned, so the next free number is **15**.
 
 ## Card writes
 
-Start with `docs/BACKUPS.md`. `tools/nz-clock/image_card.py` makes the analysis image (read-only; verify-only if the image exists; the owner runs `--image`). The writers are on main: `tools/nz-clock/backup_card.py` (full-card backup) and `write_card.py` (G214 slot, history in `docs/findings/08-nz-clock-implementation.md`). For skins, use the pinned `tools/translation/write_skin.py` workflow in `docs/findings/11-skin-pipeline.md` and `12-hour-offset-ui.md` §0.5.
+Start with `docs/BACKUPS.md`. `tools/nz-clock/image_card.py` makes the analysis image (read-only; verify-only if the image exists; the owner runs `--image`). The writers are on main: `tools/nz-clock/backup_card.py` (full-card backup) and `write_card.py` (G214 slot, history in `docs/findings/08-nz-clock-implementation.md`). For skins, use the pinned `tools/translation/write_skin.py` workflow in `docs/findings/11-skin-pipeline.md` and `12-hour-offset-ui.md` §0.5. For voice clips, use `tools/language-speech/write_gid.py` (findings 14 §8.4, §10.5; other owners: `docs/guides/english-voice.md`).
 
 - The writer is a **read-only preflight by default**.
 - `--apply` requires `--device`, a verified full-card backup made with `backup_card.py`, and pinned SHA256s for the backup, the payload and the live baseline range. It refuses on any mismatch.
@@ -47,6 +50,21 @@ Start with `docs/BACKUPS.md`. `tools/nz-clock/image_card.py` makes the analysis 
 
 - The UI skin is hidden p2 `/SkinChange/002/substance.skn`, starting at sector 29925953. It was already modified when found. Format: `docs/findings/11-skin-pipeline.md`; bytecode: `12-hour-offset-ui.md` §1.1.
 - Redact any account or ID tokens embedded in the skin.
+
+## Voice prompts (English voice)
+
+- Recorded prompts live in p1 `SPEECH/JP/GID/SJP00300.GID`: 2,071 clips, mostly SSC (`Speech.exe!SSC_Decode` 0x1d1494). Our stdlib decoder/encoder round-trips them, and **the car plays our SSC streams** [confirmed]. See findings 14.
+- On the maintainer's card: **Penny v2** `4635b412…` = the v1.1 greeting `0a80b637…` (clips 764–819) plus 41 EV alert clips. Stock is `6733c2b2…`.
+- **Builds are same-size and in place.** Each clip must fit its stock slot; `gid_patch.py` refuses any byte outside the allowlisted clip sets (`greeting`, `ev`). New clip sets extend `CLIP_SETS` and the allowlist rather than forking the tools.
+- **Loudness:** always build with `prepare_greeting.py --rms-dbfs -16 --peak-dbfs -2`; raw TTS output was 10–20 dB below stock and sounded silent in the car.
+- **The greeting is gated** once per JST period (05:00 / 11:00 / 17:30 JST). A silent start doesn't mean a broken build (findings 14 §9).
+- **Other owners** follow `docs/guides/english-voice.md`: path A (our Penny packs), B (own wording/voice on ElevenLabs), C (any TTS or recordings via `import_wavs.py`). Keep all three working:
+  - `$NISSAN_ROOT` (default `~/nissan`) sets the work root; never hard-code `~/nissan`.
+  - `VOICE_WORDING=<tsv>` (`clip`, `en_nz`) replaces the committed wording, one file per clip set. Plain English only, since it may go to a cloud TTS.
+  - `write_gid.py --pins <json>` takes the owner's `card_bytes`, `backup_sha256` and `builds`, and finds the GID through their FAT32, bounded by the MBR partition and the card size. Without `--pins` it behaves exactly as for the maintainer's card.
+  - `prepare_greeting.py --stock-gid` lets an EV build sit on stock or the owner's own greeting build.
+- **Release packs** are GitHub Release assets, never git: `penny-greeting-v1.1.zip` and `penny-ev-v2.zip` (release `voice-penny-v2`, with `SHA256SUMS`). They hold only our encoded clips, previews and manifests; `clip_pack.py build` reproduces `0a80b637…` / `4635b412…` from the stock GID. **Never publish** the stock GID, a built GID, `Speech.exe` or any decoded stock clip: they are Nissan/Clarion audio and code. The Penny renders were made on the maintainer's paid ElevenLabs plan; credit ElevenLabs. A new pinned build gets a new pack and a new release.
+- Speech-to-text Japanese drafts can be badly wrong. Fix the Japanese first, tag corrections `[likely]`/`[guess]`, and keep rows `draft` until a person has listened (`translations/README.md`).
 
 ## Clock / hour offset
 

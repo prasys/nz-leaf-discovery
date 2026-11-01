@@ -99,6 +99,10 @@ flowchart TB
 - **Card writes are safe to repeat and undo.** Every write ran through the pinned writers: full-card backup, read-only preflight, owner-run `--apply`, byte-exact read-back, a receipt and a rollback snapshot **[confirmed, receipts]** ([BACKUPS](docs/BACKUPS.md))
 - **The card reads end to end without mounting it.** Hidden partition, firmware slots, CE ROM modules, MTCP/LZ4 (checked against `liblz4`), slot checksums and the settings store all decode with the read-only tools **[confirmed]** ([01](docs/findings/01-card-layout-and-firmware.md), [05](docs/findings/05-checksums.md), [06](docs/findings/06-mtcp-lz4.md))
 - **The skin's screen code decodes.** All 10,215 bytecode records parse, which is how the hour setter was found **[confirmed]** ([12](docs/findings/12-hour-offset-ui.md) §1)
+- **English start-up greeting.** The 56 recorded greeting, date and safety clips are re-recorded in an NZ English voice (ElevenLabs "Penny"), encoded in the unit's own SSC codec and written same-size into `SPEECH/JP/GID/SJP00300.GID`; the owner hears it in the car **[confirmed, owner report]**. It follows Japan time and plays once per period (NZDT 09:00 / 15:00 / 21:30) ([14](docs/findings/14-voice-prompts.md) §8, §9)
+- **The GID codec is decoded.** All 2,071 recorded clips decode with a stdlib port of `Speech.exe!SSC_Decode` (0x1d1494), and our encoder's streams play in the car **[confirmed]** ([14](docs/findings/14-voice-prompts.md) §5)
+
+**English voice on your own unit:** follow [docs/guides/english-voice.md](docs/guides/english-voice.md). Use our ready-made NZ English clip packs from the [`voice-penny-v2` release](https://github.com/prasys/nz-leaf-discovery/releases/tag/voice-penny-v2) (no TTS account needed), your own wording and voice, or any other TTS engine or your own recordings.
 
 ## In progress
 
@@ -109,6 +113,7 @@ flowchart TB
 | Dash clock, charge/climate timers, persistence | Vehicle.exe reads the corrected local time [confirmed static]; not yet checked in the car, nor across GPS reconnects and power cycles | [#4](https://github.com/prasys/nz-leaf-discovery/issues/4) |
 | Dormant +13 G214 probe | Still on the card from the firmware tests; retire it with a pinned restore | [#5](https://github.com/prasys/nz-leaf-discovery/issues/5), [#8](https://github.com/prasys/nz-leaf-discovery/issues/8) |
 | Where the clock setting lives | SD settings store or the unit's internal flash? | [#6](https://github.com/prasys/nz-leaf-discovery/issues/6) |
+| English EV alerts | 41 EV clips (low battery, charging stations, doors, parking brake, energy monitor) in the same voice are on the card; car listening pending | [14](docs/findings/14-voice-prompts.md) §10 |
 | Maps, voice, FM, GPS | Research; see To do and Other topics | [#12](https://github.com/prasys/nz-leaf-discovery/issues/12), [#14](https://github.com/prasys/nz-leaf-discovery/issues/14), [#15](https://github.com/prasys/nz-leaf-discovery/issues/15), [#16](https://github.com/prasys/nz-leaf-discovery/issues/16) |
 
 **Try it on your own card:** read [docs/BACKUPS.md](docs/BACKUPS.md) first, then follow [12 §0.5](docs/findings/12-hour-offset-ui.md#05-repeat-or-roll-back-owner-runs---apply). You need a full-card backup, a build that matches a pinned SHA256, and a read-only preflight that passes. If your card differs from this one, the writer refuses, and that is on purpose.
@@ -127,7 +132,7 @@ That is why the fix moved up a layer: the skin visibly loads from the card, and 
 ## To do
 
 - **Japanese maps:** understand the `DBDIR` map database well enough to say whether NZ maps can go on this unit ([#12](https://github.com/prasys/nz-leaf-discovery/issues/12), [#13](https://github.com/prasys/nz-leaf-discovery/issues/13); the detailed map-format drafts are not public yet)
-- **Voice guidance:** identify the GID prompt codec ([#14](https://github.com/prasys/nz-leaf-discovery/issues/14)) and see whether the prompts can be mapped or replaced
+- **Voice guidance:** the greeting and EV alerts are English; next is a reviewed English table for the rest of the recorded prompts ([#14](https://github.com/prasys/nz-leaf-discovery/issues/14), [`translations/`](translations/README.md))
 - **Clock follow-ups:** automatic NZ DST ([#2](https://github.com/prasys/nz-leaf-discovery/issues/2)), the "Minutes" label ([#3](https://github.com/prasys/nz-leaf-discovery/issues/3)), car validation of dash, timers and persistence ([#4](https://github.com/prasys/nz-leaf-discovery/issues/4)), retiring the dormant G214 probe ([#5](https://github.com/prasys/nz-leaf-discovery/issues/5))
 - Smaller open items: which store holds the clock setting ([#6](https://github.com/prasys/nz-leaf-discovery/issues/6)), the unit's model code ([#7](https://github.com/prasys/nz-leaf-discovery/issues/7)), pinned restore writers ([#8](https://github.com/prasys/nz-leaf-discovery/issues/8))
 
@@ -139,7 +144,7 @@ That is why the fix moved up a layer: the skin visibly loads from the card, and 
 | FM band | Tables cover 76–90 MHz, no checksum. Whether the tuner reaches 88–108 MHz is open | [03](docs/findings/03-config-files.md), [#15](https://github.com/prasys/nz-leaf-discovery/issues/15) |
 | GPS latitude shown as North | The owner sees "N" next to the NZ latitude. Property names found in G214; cause open | [#16](https://github.com/prasys/nz-leaf-discovery/issues/16), [08](docs/findings/08-nz-clock-implementation.md) §14.6 |
 | Boot logo | `BASS` container with a u32 word-sum, on p1 and in slot 790528. Payload not decoded | [03](docs/findings/03-config-files.md) §10, [#17](https://github.com/prasys/nz-leaf-discovery/issues/17) |
-| Voice prompts | Japanese Nuance TTS/VoCon. Recorded guidance clips use an unidentified codec | [04](docs/findings/04-language-speech.md), [#14](https://github.com/prasys/nz-leaf-discovery/issues/14) |
+| Voice prompts | Japanese Nuance TTS/VoCon for dynamic text. The 2,071 recorded clips use Clarion's SSC codec, now decoded and re-encoded [confirmed]; the English table beyond greeting and EV is a draft [guess] | [04](docs/findings/04-language-speech.md), [14](docs/findings/14-voice-prompts.md), [#14](https://github.com/prasys/nz-leaf-discovery/issues/14) |
 | Card binding | Unknown. Keyed blobs at LBA 800768–800772; clone boot untested. The card is not SD-password-locked | [#10](https://github.com/prasys/nz-leaf-discovery/issues/10), [#9](https://github.com/prasys/nz-leaf-discovery/issues/9), [13](docs/findings/13-prior-art-leafsdtools.md) §2.4 |
 | Checksums | All additive sums. Open: G214 header +0x14, MTLD +0x08, NK +0x6C | [05](docs/findings/05-checksums.md), [#11](https://github.com/prasys/nz-leaf-discovery/issues/11) |
 
@@ -160,7 +165,7 @@ That is why the fix moved up a layer: the skin visibly loads from the card, and 
 | `raw-areas/` | MBR, exFAT walker, ROMHDR lister, magic/UTF-16 scanners ([01](docs/findings/01-card-layout-and-firmware.md)) |
 | `unit-and-clock/` | early string and Shift-JIS scanners ([02](docs/findings/02-unit-and-clock.md)) |
 | `config-files/` | FAT directory reader, radio tables, checksum candidates ([03](docs/findings/03-config-files.md)) |
-| `language-speech/` | speech container parser and TTS/GID/grammar extractors ([04](docs/findings/04-language-speech.md)) |
+| `language-speech/` | speech container parser, GID catalogue, SSC decoder/encoder, ElevenLabs renderer, `import_wavs.py` (any TTS), `prepare_greeting.py`, `clip_pack.py` and the pinned `write_gid.py` writer ([04](docs/findings/04-language-speech.md), [14](docs/findings/14-voice-prompts.md)) |
 | `checksums/` | slot SUM4/sum8 and VSRAM SRST/SRED verifiers ([05](docs/findings/05-checksums.md)) |
 | `ce-extract/` | CE ROM extractor, LZX, MTCP unpacker, hive reader ([05](docs/findings/05-ce-rom-extract.md)) |
 | `mtcp/` | verified LZ4 decoder and G214 module inventory ([06](docs/findings/06-mtcp-lz4.md)) |
@@ -173,6 +178,7 @@ That is why the fix moved up a layer: the skin visibly loads from the card, and 
 ## Docs
 
 - [docs/BACKUPS.md](docs/BACKUPS.md): imaging, backups, writing and rollback
+- [docs/guides/english-voice.md](docs/guides/english-voice.md): English voice prompts on your own unit, step by step
 - [AGENTS.md](AGENTS.md): rules for agents (and a good summary of the house rules for people)
 
 Findings in [`docs/findings/`](docs/findings), by file number. 05 and 06 are each used twice; the files keep their names so links stay valid.
@@ -188,6 +194,7 @@ Findings in [`docs/findings/`](docs/findings), by file number. 05 and 06 are eac
 - [11](docs/findings/11-skin-pipeline.md) Skin container format and `write_skin.py`
 - [12](docs/findings/12-hour-offset-ui.md) **Working hour offset**: overview, assumptions, procedure, evidence
 - [13](docs/findings/13-prior-art-leafsdtools.md) Prior art: leafsdtools
+- [14](docs/findings/14-voice-prompts.md) Voice inventory, SSC decoder/encoder, boot greeting and repeat gate, English greeting and EV builds
 
 ## Related projects
 

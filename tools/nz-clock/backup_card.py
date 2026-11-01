@@ -1,6 +1,9 @@
 #!/usr/bin/env python3 -I
 """Read-only backup of an identified 16 GB physical SD to a NEW work directory.
 
+Other owners' cards may differ in size: pass --expect-bytes with the exact
+TotalSize from `diskutil info -plist diskN`.
+
 Never opens a device for writing, mounts/unmounts anything, or overwrites files.
 macOS raw SD access may require running this tool with sudo.
 """
@@ -18,12 +21,12 @@ SIZE = 16206790656
 CHUNK = 8 * 1024 * 1024
 
 
-def identify(device, *, require_unmounted=True):
+def identify(device, *, require_unmounted=True, expect_bytes=SIZE):
     info = plistlib.loads(subprocess.check_output(["diskutil", "info", "-plist", device]))
-    if (info.get("DeviceIdentifier") != device or info.get("TotalSize") != SIZE or
+    if (info.get("DeviceIdentifier") != device or info.get("TotalSize") != expect_bytes or
             info.get("VirtualOrPhysical") != "Physical" or not info.get("RemovableMedia") or
             not info.get("WholeDisk")):
-        raise ValueError("Device is not the expected whole removable physical 16 GB SD")
+        raise ValueError(f"Device is not the expected whole removable physical {expect_bytes}-byte SD")
     if require_unmounted:
         disks = plistlib.loads(subprocess.check_output(["diskutil", "list", "-plist", device]))
         for disk in disks.get("AllDisksAndPartitions", []):
@@ -37,6 +40,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device", required=True, help="whole disk identifier, e.g. disk9")
     parser.add_argument("--work-root", required=True, type=Path, help="absolute NISSAN_ROOT/work path")
+    parser.add_argument("--expect-bytes", type=int, default=SIZE, help=f"exact card size (default {SIZE})")
     args = parser.parse_args()
     if not re.fullmatch(r"disk[0-9]+", args.device):
         parser.error("Expected a whole disk identifier")
@@ -44,7 +48,7 @@ def main():
     if not work.is_dir() or work.name != "work" or work.is_relative_to(Path("/dev")):
         parser.error("work-root must be the existing NISSAN_ROOT/work directory")
     try:
-        identity = identify(args.device)
+        identity = identify(args.device, expect_bytes=args.expect_bytes)
         source = Path("/dev/r" + args.device)
         # Open read-only BEFORE creating any output, so permission errors leave
         # no misleading partial backup directory.
@@ -56,8 +60,8 @@ def main():
             digest = hashlib.sha256()
             total = 0
             with target.open("xb") as dest:
-                while total < SIZE:
-                    block = src.read(min(CHUNK, SIZE - total))
+                while total < args.expect_bytes:
+                    block = src.read(min(CHUNK, args.expect_bytes - total))
                     if not block:
                         raise OSError("Short read from SD card")
                     dest.write(block)
@@ -67,13 +71,13 @@ def main():
                         print(f"Backed up {total // (1024 * 1024 * 1024)} GiB", flush=True)
                 dest.flush()
                 os.fsync(dest.fileno())
-            if identify(args.device) != identity:
+            if identify(args.device, expect_bytes=args.expect_bytes) != identity:
                 raise ValueError("Device identity changed during backup")
         check = hashlib.sha256()
         with target.open("rb") as saved:
             while block := saved.read(CHUNK):
                 check.update(block)
-        if digest.digest() != check.digest() or target.stat().st_size != SIZE:
+        if digest.digest() != check.digest() or target.stat().st_size != args.expect_bytes:
             raise ValueError("Backup read-back verification failed")
         report = {"status": "VERIFIED_READ_ONLY_CARD_BACKUP", "bytes": total,
                   "sha256": digest.hexdigest(), "identity": identity,
